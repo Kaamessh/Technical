@@ -49,7 +49,7 @@ create table if not exists quiz_questions (
   id uuid primary key default gen_random_uuid(),
   event_id uuid references events(id) on delete cascade,
   question_text text not null,
-  options jsonb not null,               -- ["A opt","B opt","C opt","D opt"]
+  options jsonb not null,
   correct_index int not null,
   created_at timestamptz default now()
 );
@@ -71,7 +71,7 @@ create table if not exists workflow_challenges (
   id uuid primary key default gen_random_uuid(),
   event_id uuid references events(id) on delete cascade,
   title text,
-  image_urls jsonb not null,            -- array of image URLs in correct order
+  image_urls jsonb not null,
   created_at timestamptz default now()
 );
 
@@ -95,13 +95,13 @@ create table if not exists data_challenge_questions (
   created_at timestamptz default now()
 );
 
--- 10. TEAM DECODE WORDS (Round 5 Setup)
+-- 10. TEAM DECODE WORDS
 create table if not exists team_decode_words (
   id uuid primary key default gen_random_uuid(),
   team_id uuid references teams(id) on delete cascade unique,
-  word text not null,                        -- e.g. "elephant"
-  letter_numbers int[] not null,              -- [5,12,5,16,8,1,14,20]
-  binary_clue text not null                   -- e.g. "1111" -> decodes to 15
+  word text not null,
+  letter_numbers int[] not null,
+  binary_clue text not null
 );
 
 -- 11. TEAM ROUND PROGRESS
@@ -123,12 +123,12 @@ create table if not exists points_ledger (
   team_id uuid references teams(id) on delete cascade,
   round_number int,
   points numeric not null,
-  reason text,                          -- 'auto: round finish rank 1', 'manual admin edit', etc.
+  reason text,
   edited_by_admin uuid references admins(id) on delete set null,
   created_at timestamptz default now()
 );
 
--- ENABLE ROW LEVEL SECURITY & OPEN POLICIES FOR API OPERATIONS
+-- RLS POLICIES FOR API OPERATIONS
 alter table admins enable row level security;
 alter table events enable row level security;
 alter table slots enable row level security;
@@ -142,7 +142,24 @@ alter table team_decode_words enable row level security;
 alter table team_round_progress enable row level security;
 alter table points_ledger enable row level security;
 
--- Open policies for API access
+-- DROP EXISTING POLICIES IF THEY EXIST
+drop policy if exists "Allow all on admins" on admins;
+drop policy if exists "Allow all on events" on events;
+drop policy if exists "Allow all on slots" on slots;
+drop policy if exists "Allow all on teams" on teams;
+drop policy if exists "Allow all on quiz_questions" on quiz_questions;
+drop policy if exists "Allow all on slot_question_queue" on slot_question_queue;
+drop policy if exists "Allow all on workflow_challenges" on workflow_challenges;
+drop policy if exists "Allow all on ai_or_real_challenges" on ai_or_real_challenges;
+drop policy if exists "Allow all on data_challenge_questions" on data_challenge_questions;
+drop policy if exists "Allow all on team_decode_words" on team_decode_words;
+drop policy if exists "Allow all on team_round_progress" on team_round_progress;
+drop policy if exists "Allow all on points_ledger" on points_ledger;
+drop policy if exists "Allow anon read for points_ledger" on points_ledger;
+drop policy if exists "Allow anon read for slot_question_queue" on slot_question_queue;
+drop policy if exists "Allow anon read for slots" on slots;
+
+-- CREATE OPEN POLICIES
 create policy "Allow all on admins" on admins for all using (true) with check (true);
 create policy "Allow all on events" on events for all using (true) with check (true);
 create policy "Allow all on slots" on slots for all using (true) with check (true);
@@ -156,17 +173,6 @@ create policy "Allow all on team_decode_words" on team_decode_words for all usin
 create policy "Allow all on team_round_progress" on team_round_progress for all using (true) with check (true);
 create policy "Allow all on points_ledger" on points_ledger for all using (true) with check (true);
 
--- PUBLICATION FOR SUPABASE REALTIME
+-- PUBLICATION FOR REALTIME
 drop publication if exists supabase_realtime;
 create publication supabase_realtime for table points_ledger, slot_question_queue, slots;
-
--- SEED INITIAL ADMIN ACCOUNT
--- Email: kaamesh712006@gmail.com | Username: Kaamesh | Password: palanivelmangai
-insert into admins (username, email, password_hash)
-values (
-  'Kaamesh',
-  'kaamesh712006@gmail.com',
-  '$2b$10$3tK.3K73wE3GZ7m0W8Q9.e1pD2jKx5O8a3H7I2U9B1K5N2O3P4Q5R' -- bcrypt hash for palanivelmangai
-)
-on conflict (email) do update
-set password_hash = excluded.password_hash;
