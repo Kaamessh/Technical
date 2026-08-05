@@ -28,7 +28,9 @@ export const AdminRegister: React.FC = () => {
       loginAdmin(res.data.token, res.data.admin);
       navigate('/admin/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Registration failed. Check your admin credentials.');
+      console.error('Registration error details:', err);
+      const serverMsg = err.response?.data?.error || err.message || 'Registration failed.';
+      setError(serverMsg);
     } finally {
       setLoading(false);
     }
@@ -44,7 +46,7 @@ export const AdminRegister: React.FC = () => {
         <p className="text-xs text-center text-slate-500 mb-6">Create the administrator account for the event platform</p>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+          <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold break-words">
             {error}
           </div>
         )}

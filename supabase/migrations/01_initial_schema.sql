@@ -128,51 +128,20 @@ create table if not exists points_ledger (
   created_at timestamptz default now()
 );
 
--- RLS POLICIES FOR API OPERATIONS
-alter table admins enable row level security;
-alter table events enable row level security;
-alter table slots enable row level security;
-alter table teams enable row level security;
-alter table quiz_questions enable row level security;
-alter table slot_question_queue enable row level security;
-alter table workflow_challenges enable row level security;
-alter table ai_or_real_challenges enable row level security;
-alter table data_challenge_questions enable row level security;
-alter table team_decode_words enable row level security;
-alter table team_round_progress enable row level security;
-alter table points_ledger enable row level security;
+-- DISABLE ROW LEVEL SECURITY ON ALL TABLES TO PERMIT ALL API OPERATIONS
+alter table admins disable row level security;
+alter table events disable row level security;
+alter table slots disable row level security;
+alter table teams disable row level security;
+alter table quiz_questions disable row level security;
+alter table slot_question_queue disable row level security;
+alter table workflow_challenges disable row level security;
+alter table ai_or_real_challenges disable row level security;
+alter table data_challenge_questions disable row level security;
+alter table team_decode_words disable row level security;
+alter table team_round_progress disable row level security;
+alter table points_ledger disable row level security;
 
--- DROP EXISTING POLICIES IF THEY EXIST
-drop policy if exists "Allow all on admins" on admins;
-drop policy if exists "Allow all on events" on events;
-drop policy if exists "Allow all on slots" on slots;
-drop policy if exists "Allow all on teams" on teams;
-drop policy if exists "Allow all on quiz_questions" on quiz_questions;
-drop policy if exists "Allow all on slot_question_queue" on slot_question_queue;
-drop policy if exists "Allow all on workflow_challenges" on workflow_challenges;
-drop policy if exists "Allow all on ai_or_real_challenges" on ai_or_real_challenges;
-drop policy if exists "Allow all on data_challenge_questions" on data_challenge_questions;
-drop policy if exists "Allow all on team_decode_words" on team_decode_words;
-drop policy if exists "Allow all on team_round_progress" on team_round_progress;
-drop policy if exists "Allow all on points_ledger" on points_ledger;
-drop policy if exists "Allow anon read for points_ledger" on points_ledger;
-drop policy if exists "Allow anon read for slot_question_queue" on slot_question_queue;
-drop policy if exists "Allow anon read for slots" on slots;
-
--- CREATE OPEN POLICIES
-create policy "Allow all on admins" on admins for all using (true) with check (true);
-create policy "Allow all on events" on events for all using (true) with check (true);
-create policy "Allow all on slots" on slots for all using (true) with check (true);
-create policy "Allow all on teams" on teams for all using (true) with check (true);
-create policy "Allow all on quiz_questions" on quiz_questions for all using (true) with check (true);
-create policy "Allow all on slot_question_queue" on slot_question_queue for all using (true) with check (true);
-create policy "Allow all on workflow_challenges" on workflow_challenges for all using (true) with check (true);
-create policy "Allow all on ai_or_real_challenges" on ai_or_real_challenges for all using (true) with check (true);
-create policy "Allow all on data_challenge_questions" on data_challenge_questions for all using (true) with check (true);
-create policy "Allow all on team_decode_words" on team_decode_words for all using (true) with check (true);
-create policy "Allow all on team_round_progress" on team_round_progress for all using (true) with check (true);
-create policy "Allow all on points_ledger" on points_ledger for all using (true) with check (true);
-
--- PUBLICATION FOR REALTIME
+-- PUBLICATION FOR REALTIME BROADCASTS
 drop publication if exists supabase_realtime;
 create publication supabase_realtime for table points_ledger, slot_question_queue, slots;
