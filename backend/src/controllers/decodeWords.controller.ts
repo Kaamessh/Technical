@@ -1,6 +1,6 @@
 import { Response } from 'express';
-import { supabase } from '../services/supabaseClient.js';
-import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware.js';
+import { supabase } from '../services/supabaseClient';
+import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware';
 
 function wordToLetterNumbers(word: string): number[] {
   const clean = word.toLowerCase().replace(/[^a-z]/g, '');

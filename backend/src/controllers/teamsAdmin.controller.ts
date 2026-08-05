@@ -1,8 +1,8 @@
 import { Response } from 'express';
 import bcrypt from 'bcrypt';
-import { supabase } from '../services/supabaseClient.js';
-import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware.js';
-import { normalizeTeamName } from '../utils/caseInsensitive.js';
+import { supabase } from '../services/supabaseClient';
+import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware';
+import { normalizeTeamName } from '../utils/caseInsensitive';
 
 export async function getTeamsAdmin(req: AuthenticatedAdminRequest, res: Response) {
   try {

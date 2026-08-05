@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { createEvent, getEvents, getEventById, updateEvent } from '../controllers/events.controller.js';
-import { authAdminMiddleware } from '../middlewares/authAdmin.middleware.js';
+import { createEvent, getEvents, getEventById, updateEvent } from '../controllers/events.controller';
+import { authAdminMiddleware } from '../middlewares/authAdmin.middleware';
 
 const router = Router();
 

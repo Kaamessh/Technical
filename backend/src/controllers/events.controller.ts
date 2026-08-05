@@ -1,6 +1,6 @@
 import { Response } from 'express';
-import { supabase } from '../services/supabaseClient.js';
-import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware.js';
+import { supabase } from '../services/supabaseClient';
+import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware';
 
 export async function createEvent(req: AuthenticatedAdminRequest, res: Response) {
   try {

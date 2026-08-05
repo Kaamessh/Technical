@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient.js';
+import { supabase } from './supabaseClient';
 
 export async function broadcastToSlot(slotId: string, event: string, payload: any) {
   try {

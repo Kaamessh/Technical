@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { JwtPayloadAdmin, JwtPayloadTeam } from '../models/types.js';
+import { JwtPayloadAdmin, JwtPayloadTeam } from '../models/types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-gamification-2026';
 const JWT_EXPIRES_IN = '1d';

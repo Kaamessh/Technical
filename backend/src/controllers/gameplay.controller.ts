@@ -1,9 +1,9 @@
 import { Response } from 'express';
-import { supabase } from '../services/supabaseClient.js';
-import { AuthenticatedTeamRequest } from '../middlewares/authTeam.middleware.js';
-import { completeTeamRound } from '../services/scoring.service.js';
-import { broadcastToSlot } from '../services/realtime.service.js';
-import { verifyFinalPassword } from '../utils/binaryDecode.js';
+import { supabase } from '../services/supabaseClient';
+import { AuthenticatedTeamRequest } from '../middlewares/authTeam.middleware';
+import { completeTeamRound } from '../services/scoring.service';
+import { broadcastToSlot } from '../services/realtime.service';
+import { verifyFinalPassword } from '../utils/binaryDecode';
 
 // Helper to get decode hint numbers for team
 async function getTeamDecodeHintPair(teamId: string, pairIndex: number): Promise<number[] | null> {

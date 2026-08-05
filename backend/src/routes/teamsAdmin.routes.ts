@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { getTeamsAdmin, createTeamAdmin, updateTeamAdmin, deleteTeamAdmin } from '../controllers/teamsAdmin.controller.js';
-import { authAdminMiddleware } from '../middlewares/authAdmin.middleware.js';
+import { getTeamsAdmin, createTeamAdmin, updateTeamAdmin, deleteTeamAdmin } from '../controllers/teamsAdmin.controller';
+import { authAdminMiddleware } from '../middlewares/authAdmin.middleware';
 
 const router = Router();
 

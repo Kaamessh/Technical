@@ -2,19 +2,19 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-import authRoutes from './routes/auth.routes.js';
-import eventsRoutes from './routes/events.routes.js';
-import slotsRoutes from './routes/slots.routes.js';
-import questionsRoutes from './routes/questions.routes.js';
-import workflowRoutes from './routes/workflow.routes.js';
-import aiOrRealRoutes from './routes/aiOrReal.routes.js';
-import dataChallengeRoutes from './routes/dataChallenge.routes.js';
-import decodeWordsRoutes from './routes/decodeWords.routes.js';
-import gameplayRoutes from './routes/gameplay.routes.js';
-import leaderboardRoutes from './routes/leaderboard.routes.js';
-import pointsRoutes from './routes/points.routes.js';
-import teamsAdminRoutes from './routes/teamsAdmin.routes.js';
-import { errorHandler } from './middlewares/errorHandler.middleware.js';
+import authRoutes from './routes/auth.routes';
+import eventsRoutes from './routes/events.routes';
+import slotsRoutes from './routes/slots.routes';
+import questionsRoutes from './routes/questions.routes';
+import workflowRoutes from './routes/workflow.routes';
+import aiOrRealRoutes from './routes/aiOrReal.routes';
+import dataChallengeRoutes from './routes/dataChallenge.routes';
+import decodeWordsRoutes from './routes/decodeWords.routes';
+import gameplayRoutes from './routes/gameplay.routes';
+import leaderboardRoutes from './routes/leaderboard.routes';
+import pointsRoutes from './routes/points.routes';
+import teamsAdminRoutes from './routes/teamsAdmin.routes';
+import { errorHandler } from './middlewares/errorHandler.middleware';
 
 dotenv.config();
 

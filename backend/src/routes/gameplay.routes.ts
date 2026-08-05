@@ -10,8 +10,8 @@ import {
   submitRound4Answer,
   getRound5Clue,
   verifyRound5Password,
-} from '../controllers/gameplay.controller.js';
-import { authTeamMiddleware } from '../middlewares/authTeam.middleware.js';
+} from '../controllers/gameplay.controller';
+import { authTeamMiddleware } from '../middlewares/authTeam.middleware';
 
 const router = Router();
 

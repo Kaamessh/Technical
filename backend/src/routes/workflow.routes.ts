@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { createWorkflowChallenge, getWorkflowChallengesByEvent, deleteWorkflowChallenge } from '../controllers/workflow.controller.js';
-import { authAdminMiddleware } from '../middlewares/authAdmin.middleware.js';
+import { createWorkflowChallenge, getWorkflowChallengesByEvent, deleteWorkflowChallenge } from '../controllers/workflow.controller';
+import { authAdminMiddleware } from '../middlewares/authAdmin.middleware';
 
 const router = Router();
 

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { adminRegister, adminLogin, teamRegister, teamLogin } from '../controllers/auth.controller.js';
+import { adminRegister, adminLogin, teamRegister, teamLogin } from '../controllers/auth.controller';
 
 const router = Router();
 

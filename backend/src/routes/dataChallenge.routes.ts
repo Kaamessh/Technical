@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { createDataChallengeQuestion, getDataChallengeQuestionsByEvent, deleteDataChallengeQuestion } from '../controllers/dataChallenge.controller.js';
-import { authAdminMiddleware } from '../middlewares/authAdmin.middleware.js';
+import { createDataChallengeQuestion, getDataChallengeQuestionsByEvent, deleteDataChallengeQuestion } from '../controllers/dataChallenge.controller';
+import { authAdminMiddleware } from '../middlewares/authAdmin.middleware';
 
 const router = Router();
 

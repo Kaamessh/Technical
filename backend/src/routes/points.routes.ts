@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { adjustPoints } from '../controllers/points.controller.js';
-import { authAdminMiddleware } from '../middlewares/authAdmin.middleware.js';
+import { adjustPoints } from '../controllers/points.controller';
+import { authAdminMiddleware } from '../middlewares/authAdmin.middleware';
 
 const router = Router();
 

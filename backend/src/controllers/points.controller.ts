@@ -1,7 +1,7 @@
 import { Response } from 'express';
-import { supabase } from '../services/supabaseClient.js';
-import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware.js';
-import { broadcastToSlot } from '../services/realtime.service.js';
+import { supabase } from '../services/supabaseClient';
+import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware';
+import { broadcastToSlot } from '../services/realtime.service';
 
 export async function adjustPoints(req: AuthenticatedAdminRequest, res: Response) {
   try {

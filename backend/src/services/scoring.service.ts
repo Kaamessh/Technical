@@ -1,5 +1,5 @@
-import { supabase } from './supabaseClient.js';
-import { broadcastToSlot } from './realtime.service.js';
+import { supabase } from './supabaseClient';
+import { broadcastToSlot } from './realtime.service';
 
 export function calculateRankPoints(rank: number): number {
   const scale = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10];

@@ -1,8 +1,8 @@
 import { Response } from 'express';
-import { supabase } from '../services/supabaseClient.js';
-import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware.js';
-import { AuthenticatedTeamRequest } from '../middlewares/authTeam.middleware.js';
-import { broadcastToSlot } from '../services/realtime.service.js';
+import { supabase } from '../services/supabaseClient';
+import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware';
+import { AuthenticatedTeamRequest } from '../middlewares/authTeam.middleware';
+import { broadcastToSlot } from '../services/realtime.service';
 
 export async function createSlot(req: AuthenticatedAdminRequest, res: Response) {
   try {

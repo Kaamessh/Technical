@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { createSlot, getSlotsByEvent, getSlotStatus, joinSlot, updateSlotStatus } from '../controllers/slots.controller.js';
-import { authAdminMiddleware } from '../middlewares/authAdmin.middleware.js';
-import { authTeamMiddleware } from '../middlewares/authTeam.middleware.js';
+import { createSlot, getSlotsByEvent, getSlotStatus, joinSlot, updateSlotStatus } from '../controllers/slots.controller';
+import { authAdminMiddleware } from '../middlewares/authAdmin.middleware';
+import { authTeamMiddleware } from '../middlewares/authTeam.middleware';
 
 const router = Router();
 

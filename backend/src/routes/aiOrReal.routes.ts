@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { createAiOrRealChallenge, getAiOrRealChallengesByEvent, deleteAiOrRealChallenge } from '../controllers/aiOrReal.controller.js';
-import { authAdminMiddleware } from '../middlewares/authAdmin.middleware.js';
+import { createAiOrRealChallenge, getAiOrRealChallengesByEvent, deleteAiOrRealChallenge } from '../controllers/aiOrReal.controller';
+import { authAdminMiddleware } from '../middlewares/authAdmin.middleware';
 
 const router = Router();
 

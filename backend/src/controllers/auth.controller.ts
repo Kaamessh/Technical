@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import { supabase } from '../services/supabaseClient.js';
-import { signAdminToken, signTeamToken } from '../utils/jwt.js';
-import { normalizeTeamName } from '../utils/caseInsensitive.js';
+import { supabase } from '../services/supabaseClient';
+import { signAdminToken, signTeamToken } from '../utils/jwt';
+import { normalizeTeamName } from '../utils/caseInsensitive';
 
 const AUTHORIZED_ADMIN_EMAIL = 'kaamesh712006@gmail.com';
 

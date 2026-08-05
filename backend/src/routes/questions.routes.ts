@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { createQuizQuestion, getQuizQuestionsByEvent, deleteQuizQuestion } from '../controllers/questions.controller.js';
-import { authAdminMiddleware } from '../middlewares/authAdmin.middleware.js';
+import { createQuizQuestion, getQuizQuestionsByEvent, deleteQuizQuestion } from '../controllers/questions.controller';
+import { authAdminMiddleware } from '../middlewares/authAdmin.middleware';
 
 const router = Router();
 

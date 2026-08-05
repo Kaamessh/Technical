@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getSlotLeaderboard, getGlobalLeaderboard } from '../controllers/leaderboard.controller.js';
+import { getSlotLeaderboard, getGlobalLeaderboard } from '../controllers/leaderboard.controller';
 
 const router = Router();
 

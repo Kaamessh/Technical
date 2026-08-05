@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken } from '../utils/jwt.js';
+import { verifyToken } from '../utils/jwt';
 
 export interface AuthenticatedTeamRequest extends Request {
   team?: {

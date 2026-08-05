@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { upsertTeamDecodeWord, bulkGenerateForSlot, getDecodeWordsByEvent } from '../controllers/decodeWords.controller.js';
-import { authAdminMiddleware } from '../middlewares/authAdmin.middleware.js';
+import { upsertTeamDecodeWord, bulkGenerateForSlot, getDecodeWordsByEvent } from '../controllers/decodeWords.controller';
+import { authAdminMiddleware } from '../middlewares/authAdmin.middleware';
 
 const router = Router();
 

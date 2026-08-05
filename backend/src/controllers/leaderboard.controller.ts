@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../services/supabaseClient.js';
+import { supabase } from '../services/supabaseClient';
 
 export async function getSlotLeaderboard(req: Request, res: Response) {
   try {
