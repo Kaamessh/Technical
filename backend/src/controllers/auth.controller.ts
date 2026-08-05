@@ -15,43 +15,44 @@ export async function adminRegister(req: Request, res: Response) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // 1. Strict Email Constraint: Only kaamesh712006@gmail.com is allowed
+    // Restrict admin registration strictly to kaamesh712006@gmail.com
     if (normalizedEmail !== AUTHORIZED_ADMIN_EMAIL) {
-      return res.status(403).json({
-        error: `Registration denied. Only '${AUTHORIZED_ADMIN_EMAIL}' is authorized as administrator.`,
-      });
+      return res.status(403).json({ error: 'Invalid admin registration email.' });
     }
 
-    // 2. Lock Registration: Check if an admin account already exists
+    const password_hash = await bcrypt.hash(password, 10);
+
+    // Upsert admin record so registration always succeeds cleanly for kaamesh712006@gmail.com
     const { data: existingAdmin } = await supabase
       .from('admins')
-      .select('id, email')
-      .limit(1);
-
-    if (existingAdmin && existingAdmin.length > 0) {
-      return res.status(400).json({
-        error: `Admin account '${AUTHORIZED_ADMIN_EMAIL}' has already been registered. Registration is locked. Please sign in.`,
-      });
-    }
-
-    // 3. Hash password chosen during registration and insert
-    const password_hash = await bcrypt.hash(password, 10);
-    const { data: admin, error } = await supabase
-      .from('admins')
-      .insert({
-        username,
-        email: normalizedEmail,
-        password_hash,
-      })
-      .select('id, username, email, created_at')
+      .select('id')
+      .eq('email', normalizedEmail)
       .single();
 
-    if (error) {
-      return res.status(500).json({ error: error.message });
+    let admin;
+    if (existingAdmin) {
+      const { data: updated, error: updateErr } = await supabase
+        .from('admins')
+        .update({ username, password_hash })
+        .eq('id', existingAdmin.id)
+        .select('id, username, email, created_at')
+        .single();
+
+      if (updateErr) return res.status(500).json({ error: updateErr.message });
+      admin = updated;
+    } else {
+      const { data: created, error: createErr } = await supabase
+        .from('admins')
+        .insert({ username, email: normalizedEmail, password_hash })
+        .select('id, username, email, created_at')
+        .single();
+
+      if (createErr) return res.status(500).json({ error: createErr.message });
+      admin = created;
     }
 
     const token = signAdminToken({ id: admin.id, username: admin.username, email: admin.email });
-    return res.status(201).json({ admin, token });
+    return res.status(200).json({ admin, token });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -65,12 +66,8 @@ export async function adminLogin(req: Request, res: Response) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-
-    // Enforce email constraint
     if (normalizedEmail !== AUTHORIZED_ADMIN_EMAIL) {
-      return res.status(403).json({
-        error: `Access denied. Only '${AUTHORIZED_ADMIN_EMAIL}' is authorized as administrator.`,
-      });
+      return res.status(401).json({ error: 'Invalid admin credentials.' });
     }
 
     const { data: admin, error } = await supabase
@@ -80,14 +77,12 @@ export async function adminLogin(req: Request, res: Response) {
       .single();
 
     if (error || !admin) {
-      return res.status(401).json({
-        error: `No registered admin found for '${AUTHORIZED_ADMIN_EMAIL}'. Please register first.`,
-      });
+      return res.status(401).json({ error: 'Admin account not found. Please register first.' });
     }
 
     const valid = await bcrypt.compare(password, admin.password_hash);
     if (!valid) {
-      return res.status(401).json({ error: 'Invalid password. Please check your admin credentials.' });
+      return res.status(401).json({ error: 'Invalid admin credentials.' });
     }
 
     const token = signAdminToken({ id: admin.id, username: admin.username, email: admin.email });
