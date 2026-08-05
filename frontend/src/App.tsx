@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 
 import { AdminLogin } from './pages/admin/Login';
+import { AdminRegister } from './pages/admin/Register';
 import { AdminDashboard } from './pages/admin/Dashboard';
 import { SlotManager } from './pages/admin/SlotManager';
 import { QuestionBank } from './pages/admin/QuestionBank';
@@ -55,6 +56,7 @@ export const AppRoutes: React.FC = () => {
 
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/register" element={<AdminRegister />} />
           <Route
             path="/admin/dashboard"
             element={

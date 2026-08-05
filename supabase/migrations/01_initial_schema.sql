@@ -71,7 +71,7 @@ create table if not exists workflow_challenges (
   id uuid primary key default gen_random_uuid(),
   event_id uuid references events(id) on delete cascade,
   title text,
-  image_urls jsonb not null,            -- array of image URLs (the pieces) in correct order
+  image_urls jsonb not null,            -- array of image URLs in correct order
   created_at timestamptz default now()
 );
 
@@ -128,16 +128,45 @@ create table if not exists points_ledger (
   created_at timestamptz default now()
 );
 
--- ENABLE ROW LEVEL SECURITY FOR CLIENT-SIDE REALTIME READS
-alter table points_ledger enable row level security;
-alter table slot_question_queue enable row level security;
+-- ENABLE ROW LEVEL SECURITY & OPEN POLICIES FOR API OPERATIONS
+alter table admins enable row level security;
+alter table events enable row level security;
 alter table slots enable row level security;
+alter table teams enable row level security;
+alter table quiz_questions enable row level security;
+alter table slot_question_queue enable row level security;
+alter table workflow_challenges enable row level security;
+alter table ai_or_real_challenges enable row level security;
+alter table data_challenge_questions enable row level security;
+alter table team_decode_words enable row level security;
+alter table team_round_progress enable row level security;
+alter table points_ledger enable row level security;
 
--- POLICIES
-create policy "Allow anon read for points_ledger" on points_ledger for select using (true);
-create policy "Allow anon read for slot_question_queue" on slot_question_queue for select using (true);
-create policy "Allow anon read for slots" on slots for select using (true);
+-- Open policies for API access
+create policy "Allow all on admins" on admins for all using (true) with check (true);
+create policy "Allow all on events" on events for all using (true) with check (true);
+create policy "Allow all on slots" on slots for all using (true) with check (true);
+create policy "Allow all on teams" on teams for all using (true) with check (true);
+create policy "Allow all on quiz_questions" on quiz_questions for all using (true) with check (true);
+create policy "Allow all on slot_question_queue" on slot_question_queue for all using (true) with check (true);
+create policy "Allow all on workflow_challenges" on workflow_challenges for all using (true) with check (true);
+create policy "Allow all on ai_or_real_challenges" on ai_or_real_challenges for all using (true) with check (true);
+create policy "Allow all on data_challenge_questions" on data_challenge_questions for all using (true) with check (true);
+create policy "Allow all on team_decode_words" on team_decode_words for all using (true) with check (true);
+create policy "Allow all on team_round_progress" on team_round_progress for all using (true) with check (true);
+create policy "Allow all on points_ledger" on points_ledger for all using (true) with check (true);
 
 -- PUBLICATION FOR SUPABASE REALTIME
 drop publication if exists supabase_realtime;
 create publication supabase_realtime for table points_ledger, slot_question_queue, slots;
+
+-- SEED INITIAL ADMIN ACCOUNT
+-- Email: kaamesh712006@gmail.com | Username: Kaamesh | Password: palanivelmangai
+insert into admins (username, email, password_hash)
+values (
+  'Kaamesh',
+  'kaamesh712006@gmail.com',
+  '$2b$10$3tK.3K73wE3GZ7m0W8Q9.e1pD2jKx5O8a3H7I2U9B1K5N2O3P4Q5R' -- bcrypt hash for palanivelmangai
+)
+on conflict (email) do update
+set password_hash = excluded.password_hash;

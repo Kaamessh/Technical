@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { supabase } from '../services/supabaseClient.js';
+import { supabase } from '../services/supabaseClient';
 
 async function seed() {
   console.log('🌱 Starting Database Seed Process...');
@@ -7,7 +7,7 @@ async function seed() {
   // 1. Seed Admin Kaamesh
   const adminEmail = 'kaamesh712006@gmail.com';
   const adminUsername = 'Kaamesh';
-  const adminPassword = 'AdminPassword123!';
+  const adminPassword = 'palanivelmangai';
 
   const password_hash = await bcrypt.hash(adminPassword, 10);
 
@@ -37,7 +37,8 @@ async function seed() {
       console.log(`✅ Admin Created: Username '${adminUsername}', Email '${adminEmail}', Password '${adminPassword}'`);
     }
   } else {
-    console.log(`ℹ️ Admin '${adminUsername}' (${adminEmail}) already exists.`);
+    await supabase.from('admins').update({ password_hash }).eq('email', adminEmail);
+    console.log(`ℹ️ Admin '${adminUsername}' (${adminEmail}) updated with password '${adminPassword}'.`);
   }
 
   // 2. Create Sample Event
@@ -126,10 +127,10 @@ async function seed() {
       event_id: eventId,
       title: 'CI/CD Pipeline Sequence',
       image_urls: [
-        'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&q=80', // Step 1: Code Edit
-        'https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?w=400&q=80', // Step 2: Git Push
-        'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&q=80', // Step 3: Build Server
-        'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&q=80', // Step 4: Live Deployment
+        'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&q=80',
+        'https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?w=400&q=80',
+        'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&q=80',
+        'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&q=80',
       ],
     };
     await supabase.from('workflow_challenges').insert(workflowSample);
