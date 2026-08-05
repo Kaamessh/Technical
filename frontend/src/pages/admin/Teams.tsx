@@ -5,13 +5,16 @@ import { Users, Trash2, Calendar } from 'lucide-react';
 export const AdminTeams: React.FC = () => {
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fetchTeams = async () => {
     try {
       const res = await apiClient.get('/teams');
       setTeams(res.data);
-    } catch (err) {
+      setErrorMsg(null);
+    } catch (err: any) {
       console.error(err);
+      setErrorMsg(err.message || 'Unknown error');
     } finally {
       setLoading(false);
     }
@@ -19,6 +22,9 @@ export const AdminTeams: React.FC = () => {
 
   useEffect(() => {
     fetchTeams();
+    // Auto refresh every 10 seconds to show newly registered teams
+    const interval = setInterval(fetchTeams, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleDeleteTeam = async (id: string) => {
@@ -40,10 +46,21 @@ export const AdminTeams: React.FC = () => {
           </h1>
           <p className="text-sm text-slate-500 mt-1">View and manage all registered teams across events.</p>
         </div>
+        <button
+          onClick={fetchTeams}
+          className="btn-secondary text-sm py-2 px-4 whitespace-nowrap self-start md:self-auto"
+        >
+          Refresh Teams
+        </button>
       </div>
 
       {loading ? (
         <div className="py-12 text-center text-slate-400">Loading teams...</div>
+      ) : errorMsg ? (
+        <div className="card text-center py-12 border-rose-200">
+          <h3 className="text-lg font-bold text-rose-800">Error Loading Teams</h3>
+          <p className="text-xs text-rose-500">{errorMsg}</p>
+        </div>
       ) : teams.length === 0 ? (
         <div className="card text-center py-12 border-slate-200">
           <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
