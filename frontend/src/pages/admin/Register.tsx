@@ -5,8 +5,8 @@ import { apiClient } from '../../lib/apiClient';
 import { Shield, Lock, Mail, User, ArrowRight } from 'lucide-react';
 
 export const AdminRegister: React.FC = () => {
-  const [username, setUsername] = useState('Kaamesh');
-  const [email, setEmail] = useState('kaamesh712006@gmail.com');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -61,8 +61,8 @@ export const AdminRegister: React.FC = () => {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Kaamesh"
-                className="input-field pl-9 text-sm font-semibold"
+                placeholder="Enter your name"
+                className="input-field pl-9 text-sm"
               />
             </div>
           </div>
@@ -78,8 +78,8 @@ export const AdminRegister: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="kaamesh712006@gmail.com"
-                className="input-field pl-9 text-sm font-semibold"
+                placeholder="Enter admin email address"
+                className="input-field pl-9 text-sm"
               />
             </div>
           </div>
@@ -95,7 +95,7 @@ export const AdminRegister: React.FC = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Enter password"
                 className="input-field pl-9 text-sm"
               />
             </div>
