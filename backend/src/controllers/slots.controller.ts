@@ -87,9 +87,9 @@ export async function joinSlot(req: AuthenticatedTeamRequest, res: Response) {
       return res.status(400).json({ error: 'This slot has already completed.' });
     }
 
-    // Check if slot has already moved past Round 1 start (prevent late joins if in_progress)
-    if (slot.status === 'in_progress' && slot.current_round > 1) {
-      return res.status(400).json({ error: 'Cannot join slot: game is already in progress past Round 1.' });
+    // Prevent late joins if in_progress
+    if (slot.status === 'in_progress') {
+      return res.status(400).json({ error: 'Cannot join slot: game is already in progress.' });
     }
 
     // Update team's slot_id

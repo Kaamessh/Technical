@@ -43,9 +43,12 @@ export const SlotManager: React.FC = () => {
     fetchSlots();
   }, [selectedEventId]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleCreateSlot = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEventId) return;
+    if (!selectedEventId || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await apiClient.post('/slots', {
         event_id: selectedEventId,
@@ -56,6 +59,8 @@ export const SlotManager: React.FC = () => {
       fetchSlots();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to create slot');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -137,8 +142,8 @@ export const SlotManager: React.FC = () => {
               </span>
             </div>
 
-            <button type="submit" disabled={!selectedEventId} className="btn-primary w-full gap-2">
-              <Plus className="w-4 h-4" /> Generate Slot Code
+            <button type="submit" disabled={!selectedEventId || isSubmitting} className="btn-primary w-full gap-2 disabled:opacity-50">
+              <Plus className="w-4 h-4" /> {isSubmitting ? 'Generating...' : 'Generate Slot Code'}
             </button>
           </form>
         </div>

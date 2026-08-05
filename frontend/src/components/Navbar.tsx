@@ -37,7 +37,7 @@ export const Navbar: React.FC = () => {
                 <Link to="/admin/leaderboard" className="text-sm font-medium text-slate-600 hover:text-indigo-600 flex items-center gap-1.5 transition-colors">
                   <Trophy className="w-4 h-4" /> Leaderboard
                 </Link>
-                <Link to="/admin/settings" className="text-sm font-medium text-slate-600 hover:text-indigo-600 flex items-center gap-1.5 transition-colors">
+                <Link to="/admin/teams" className="text-sm font-medium text-slate-600 hover:text-indigo-600 flex items-center gap-1.5 transition-colors">
                   <Users className="w-4 h-4" /> Teams
                 </Link>
               </>

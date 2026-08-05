@@ -10,6 +10,7 @@ import { SlotManager } from './pages/admin/SlotManager';
 import { QuestionBank } from './pages/admin/QuestionBank';
 import { AdminLeaderboard } from './pages/admin/Leaderboard';
 import { AdminSettings } from './pages/admin/Settings';
+import { AdminTeams } from './pages/admin/Teams';
 
 import { TeamRegister } from './pages/user/Register';
 import { TeamLogin } from './pages/user/Login';
@@ -94,6 +95,14 @@ export const AppRoutes: React.FC = () => {
             element={
               <RequireAuth role="admin">
                 <AdminSettings />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/teams"
+            element={
+              <RequireAuth role="admin">
+                <AdminTeams />
               </RequireAuth>
             }
           />

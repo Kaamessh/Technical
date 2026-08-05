@@ -13,6 +13,8 @@ export const AdminDashboard: React.FC = () => {
 
   const navigate = useNavigate();
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const fetchEvents = async () => {
     try {
       const res = await apiClient.get('/events');
@@ -30,6 +32,8 @@ export const AdminDashboard: React.FC = () => {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await apiClient.post('/events', { name, description });
       setName('');
@@ -38,6 +42,8 @@ export const AdminDashboard: React.FC = () => {
       fetchEvents();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to create event');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -47,6 +53,16 @@ export const AdminDashboard: React.FC = () => {
       fetchEvents();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update event status');
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this event? This will also delete all associated slots and teams.')) return;
+    try {
+      await apiClient.delete(`/events/${id}`);
+      fetchEvents();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete event');
     }
   };
 
@@ -96,7 +112,10 @@ export const AdminDashboard: React.FC = () => {
                   </span>
                 </div>
 
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{evt.name}</h3>
+                <div className="flex justify-between items-start">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">{evt.name}</h3>
+                  <button onClick={() => handleDeleteEvent(evt.id)} className="text-rose-500 hover:text-rose-700 text-xs font-bold px-2 py-1 bg-rose-50 rounded">Delete</button>
+                </div>
                 <p className="text-xs text-slate-500 mb-6 line-clamp-2">{evt.description || 'No description provided.'}</p>
               </div>
 
@@ -172,8 +191,8 @@ export const AdminDashboard: React.FC = () => {
                 <button type="button" onClick={() => setShowCreateModal(false)} className="btn-secondary text-xs">
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary text-xs">
-                  Save Event
+                <button type="submit" disabled={isSubmitting} className="btn-primary text-xs disabled:opacity-50">
+                  {isSubmitting ? 'Saving...' : 'Save Event'}
                 </button>
               </div>
             </form>

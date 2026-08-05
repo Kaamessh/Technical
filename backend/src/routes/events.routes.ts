@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createEvent, getEvents, getEventById, updateEvent } from '../controllers/events.controller';
+import { createEvent, getEvents, getEventById, updateEvent, deleteEvent } from '../controllers/events.controller';
 import { authAdminMiddleware } from '../middlewares/authAdmin.middleware';
 
 const router = Router();
@@ -8,5 +8,6 @@ router.get('/', getEvents);
 router.get('/:id', getEventById);
 router.post('/', authAdminMiddleware, createEvent);
 router.patch('/:id', authAdminMiddleware, updateEvent);
+router.delete('/:id', authAdminMiddleware, deleteEvent);
 
 export default router;

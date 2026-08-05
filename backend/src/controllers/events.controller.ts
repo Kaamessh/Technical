@@ -79,3 +79,14 @@ export async function updateEvent(req: AuthenticatedAdminRequest, res: Response)
     return res.status(500).json({ error: error.message });
   }
 }
+
+export async function deleteEvent(req: AuthenticatedAdminRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase.from('events').delete().eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ success: true, message: 'Event deleted successfully' });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}
