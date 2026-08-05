@@ -110,6 +110,52 @@ export async function joinSlot(req: AuthenticatedTeamRequest, res: Response) {
       status: 'in_progress',
     });
 
+    // --- Dynamic Pool Assignment ---
+    // Check if team already has a word
+    const { data: existingWord } = await supabase.from('team_decode_words').select('id').eq('team_id', teamId).single();
+    
+    if (!existingWord) {
+      // Fetch pool for this event
+      const { data: poolData } = await supabase
+        .from('quiz_questions')
+        .select('*')
+        .eq('event_id', slot.event_id)
+        .eq('question_text', '__DECODE_POOL__')
+        .single();
+        
+      let assignedPoolWord = null;
+      if (poolData && Array.isArray(poolData.options) && poolData.options.length > 0) {
+        // Fetch all teams for this event
+        const { data: eventTeams } = await supabase.from('teams').select('id').eq('event_id', slot.event_id);
+        const eventTeamIds = eventTeams ? eventTeams.map(t => t.id) : [];
+        
+        // Fetch all assigned words
+        const { data: assignedWords } = await supabase.from('team_decode_words').select('word, binary_clue').in('team_id', eventTeamIds);
+        
+        // Find unassigned pool words
+        const availableWords = poolData.options.filter((pw: any) => {
+          return !assignedWords?.some(aw => aw.word === pw.target_word && aw.binary_clue === pw.binary_clue);
+        });
+        
+        if (availableWords.length > 0) {
+          // Pick random unassigned word
+          assignedPoolWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+        } else {
+          // Fallback to random pool word if we ran out
+          assignedPoolWord = poolData.options[Math.floor(Math.random() * poolData.options.length)];
+        }
+      }
+
+      if (assignedPoolWord) {
+        await supabase.from('team_decode_words').insert({
+          team_id: teamId,
+          word: assignedPoolWord.target_word,
+          letter_numbers: assignedPoolWord.letter_numbers,
+          binary_clue: assignedPoolWord.binary_clue,
+        });
+      }
+    }
+
     return res.json({ team: updatedTeam, slot });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -140,7 +186,8 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
       const { data: questions } = await supabase
         .from('quiz_questions')
         .select('id')
-        .eq('event_id', slot.event_id);
+        .eq('event_id', slot.event_id)
+        .neq('question_text', '__DECODE_POOL__');
 
       if (questions && questions.length > 0) {
         // Shuffle & pick N questions

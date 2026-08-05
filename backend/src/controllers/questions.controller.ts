@@ -29,6 +29,7 @@ export async function getQuizQuestionsByEvent(req: any, res: Response) {
       .from('quiz_questions')
       .select('*')
       .eq('event_id', eventId)
+      .neq('question_text', '__DECODE_POOL__')
       .order('created_at', { ascending: true });
 
     if (error) return res.status(500).json({ error: error.message });

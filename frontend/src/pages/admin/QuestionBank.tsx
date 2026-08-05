@@ -35,7 +35,9 @@ export const QuestionBank: React.FC = () => {
   const [r4CorrectIndex, setR4CorrectIndex] = useState(0);
 
   // Round 5 States
-  const [decodeWords, setDecodeWords] = useState<any[]>([]);
+  const [decodePool, setDecodePool] = useState<any[]>([]);
+  const [r5BinaryClue, setR5BinaryClue] = useState('');
+  const [r5TargetWord, setR5TargetWord] = useState('');
 
   useEffect(() => {
     apiClient.get('/events').then((res) => {
@@ -61,8 +63,8 @@ export const QuestionBank: React.FC = () => {
       const res = await apiClient.get(`/data-challenge/event/${selectedEventId}`);
       setDataQuestions(res.data);
     } else if (activeTab === 5) {
-      const res = await apiClient.get(`/decode-words/event/${selectedEventId}`);
-      setDecodeWords(res.data);
+      const res = await apiClient.get(`/decode-words/pool/${selectedEventId}`);
+      setDecodePool(res.data);
     }
   };
 
@@ -145,6 +147,28 @@ export const QuestionBank: React.FC = () => {
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to add data challenge');
     }
+  };
+
+  // Round 5 Handlers
+  const handleAddR5 = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiClient.post('/decode-words/pool', {
+        event_id: selectedEventId,
+        binary_clue: r5BinaryClue,
+        target_word: r5TargetWord,
+      });
+      setR5BinaryClue('');
+      setR5TargetWord('');
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to add pool word');
+    }
+  };
+
+  const handleDeleteR5 = async (wordId: string) => {
+    await apiClient.delete(`/decode-words/pool/${selectedEventId}/${wordId}`);
+    loadContent();
   };
 
   return (
@@ -520,44 +544,88 @@ export const QuestionBank: React.FC = () => {
 
       {/* TAB 5: DECODE WORDS */}
       {activeTab === 5 && (
-        <div className="space-y-6">
-          <div className="card p-6 border-slate-200">
-            <h3 className="text-lg font-extrabold text-slate-900 mb-2">Round 5 Team Target Words</h3>
-            <p className="text-xs text-slate-500 mb-6">
-              Each team receives a unique target word (e.g. "elephant"), 8 letter numbers revealed progressively in popups, and a binary clue (e.g. "1111" = 15). Final password = <code className="bg-slate-100 px-1 py-0.5 rounded text-indigo-600 font-mono">15elephant</code>.
-            </p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="card h-fit">
+            <h3 className="text-base font-extrabold text-slate-900 mb-4">Add to Target Word Pool</h3>
+            <form onSubmit={handleAddR5} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Binary Clue
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={r5BinaryClue}
+                  onChange={(e) => setR5BinaryClue(e.target.value)}
+                  placeholder="e.g. 1111 1111"
+                  className="input-field text-sm font-mono"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">Separate 4-bit nibbles with a space. E.g. "1111 1111" = 1515</p>
+              </div>
 
-            <div className="overflow-x-auto">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Target Word
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={r5TargetWord}
+                  onChange={(e) => setR5TargetWord(e.target.value.toUpperCase())}
+                  placeholder="e.g. HOSPITAL"
+                  className="input-field text-sm font-mono uppercase"
+                />
+              </div>
+
+              <button type="submit" className="btn-primary w-full text-xs py-2.5 font-bold">
+                Save to Pool
+              </button>
+            </form>
+          </div>
+
+          <div className="lg:col-span-2 space-y-4">
+            <h3 className="text-base font-extrabold text-slate-900">Decode Word Pool ({decodePool.length})</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Words from this pool will be automatically assigned to teams when they join a slot. 
+              The system auto-calculates the letter sequence and final password.
+            </p>
+            
+            <div className="overflow-x-auto card p-0 border-slate-200">
               <table className="w-full text-left text-xs font-medium border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 uppercase text-slate-500 font-bold">
-                    <th className="py-3 px-4">Team Name</th>
-                    <th className="py-3 px-4">Target Word</th>
                     <th className="py-3 px-4">Binary Clue</th>
-                    <th className="py-3 px-4">Letter Numbers (8 Hints)</th>
-                    <th className="py-3 px-4">Final Expected Password</th>
+                    <th className="py-3 px-4">Target Word</th>
+                    <th className="py-3 px-4">Letter Numbers (8)</th>
+                    <th className="py-3 px-4">Expected Password</th>
+                    <th className="py-3 px-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
-                  {decodeWords.length === 0 ? (
+                  {decodePool.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-slate-400 font-sans">
-                        No registered teams or decode words generated yet.
+                        No words in the pool yet. Add some on the left.
                       </td>
                     </tr>
                   ) : (
-                    decodeWords.map((item) => (
-                      <tr key={item.team_id} className="hover:bg-slate-50">
-                        <td className="py-3 px-4 font-sans font-bold text-slate-900">{item.team_name}</td>
-                        <td className="py-3 px-4 text-indigo-600 font-bold">{item.decode?.word || 'Not set'}</td>
-                        <td className="py-3 px-4 text-amber-600 font-bold">{item.decode?.binary_clue || '1111'}</td>
+                    decodePool.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50">
+                        <td className="py-3 px-4 text-amber-600 font-bold">{item.binary_clue}</td>
+                        <td className="py-3 px-4 text-indigo-600 font-bold">{item.target_word}</td>
                         <td className="py-3 px-4 text-emerald-600 font-bold">
-                          {item.decode?.letter_numbers ? `[${item.decode.letter_numbers.join(', ')}]` : 'N/A'}
+                          [{item.letter_numbers.join(', ')}]
                         </td>
                         <td className="py-3 px-4 text-slate-800 font-extrabold">
-                          {item.decode
-                            ? `${parseInt(item.decode.binary_clue, 2)}${item.decode.word}`
-                            : 'N/A'}
+                          {item.final_password}
+                        </td>
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() => handleDeleteR5(item.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     ))
