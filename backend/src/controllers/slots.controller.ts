@@ -189,6 +189,10 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
         .eq('event_id', slot.event_id)
         .neq('question_text', '__DECODE_POOL__');
 
+      if (!questions || questions.length === 0) {
+        throw new Error('Cannot start Round 1: No quiz questions found for this event.');
+      }
+
       if (questions && questions.length > 0) {
         // Shuffle & pick N questions
         const shuffled = [...questions].sort(() => 0.5 - Math.random());
@@ -206,7 +210,10 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
           live_started_at: idx === 0 ? new Date().toISOString() : null,
         }));
 
-        await supabase.from('slot_question_queue').insert(queuePayload);
+        const { error: insertErr } = await supabase.from('slot_question_queue').insert(queuePayload);
+        if (insertErr) {
+          throw new Error('Queue insert error: ' + insertErr.message);
+        }
 
         // Broadcast first question live
         if (queuePayload.length > 0) {
