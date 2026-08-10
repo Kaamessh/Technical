@@ -234,3 +234,34 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
     return res.status(500).json({ error: error.message });
   }
 }
+
+export async function deleteSlot(req: AuthenticatedAdminRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    
+    // Check if slot exists
+    const { data: slot, error: fetchErr } = await supabase
+      .from('slots')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !slot) {
+      return res.status(404).json({ error: 'Slot not found' });
+    }
+
+    // Delete the slot
+    const { error: deleteErr } = await supabase
+      .from('slots')
+      .delete()
+      .eq('id', id);
+
+    if (deleteErr) {
+      return res.status(500).json({ error: deleteErr.message });
+    }
+
+    return res.json({ message: 'Slot deleted successfully' });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}

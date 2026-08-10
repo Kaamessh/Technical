@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../../lib/apiClient';
-import { Plus, Play, CheckCircle, Clock, Copy, Users, Radio } from 'lucide-react';
+import { Plus, Play, CheckCircle, Clock, Copy, Users, Radio, Trash2 } from 'lucide-react';
 
 export const SlotManager: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -70,6 +70,18 @@ export const SlotManager: React.FC = () => {
       fetchSlots();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update slot status');
+    }
+  };
+
+  const handleDeleteSlot = async (slotId: string) => {
+    if (!window.confirm('Are you sure you want to delete this slot? All associated data (teams, progress) will be deleted.')) {
+      return;
+    }
+    try {
+      await apiClient.delete(`/slots/${slotId}`);
+      fetchSlots();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete slot');
     }
   };
 
@@ -169,19 +181,28 @@ export const SlotManager: React.FC = () => {
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                         Slot #{slot.slot_number}
                       </span>
-                      <span
-                        className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
-                          slot.status === 'in_progress'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse'
-                            : slot.status === 'open'
-                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                            : slot.status === 'completed'
-                            ? 'bg-slate-100 text-slate-600 border-slate-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}
-                      >
-                        {slot.status}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
+                            slot.status === 'in_progress'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse'
+                              : slot.status === 'open'
+                              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                              : slot.status === 'completed'
+                              ? 'bg-slate-100 text-slate-600 border-slate-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                        >
+                          {slot.status}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteSlot(slot.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                          title="Delete Slot"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Join Code Box */}
