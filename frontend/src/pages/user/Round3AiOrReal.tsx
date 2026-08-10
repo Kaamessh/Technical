@@ -11,7 +11,7 @@ export const Round3AiOrReal: React.FC = () => {
 
   const [challenge, setChallenge] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [startTime] = useState<number>(Date.now());
+  const [startTime, setStartTime] = useState<number>(Date.now());
   const [selectedSide, setSelectedSide] = useState<'A' | 'B' | null>(null);
 
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -27,6 +27,7 @@ export const Round3AiOrReal: React.FC = () => {
       .get('/gameplay/round3/challenge')
       .then((res) => {
         setChallenge(res.data);
+        setStartTime(Date.now());
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
@@ -89,7 +90,7 @@ export const Round3AiOrReal: React.FC = () => {
           </h1>
         </div>
 
-        <Timer isCountUp={true} />
+        <Timer isCountUp={true} isActive={!loading && !!challenge} />
       </div>
 
       <div className="mb-6 p-4 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-medium">

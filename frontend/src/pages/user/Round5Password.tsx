@@ -17,7 +17,7 @@ export const Round5Password: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [triggerConfetti, setTriggerConfetti] = useState(false);
 
-  const [startTime] = useState<number>(Date.now());
+  const [startTime, setStartTime] = useState<number>(Date.now());
 
   useEffect(() => {
     apiClient
@@ -25,6 +25,7 @@ export const Round5Password: React.FC = () => {
       .then((res) => {
         setBinaryClue(res.data.binary_clue);
         setLetterNumbers(res.data.letter_numbers || []);
+        setStartTime(Date.now());
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
@@ -73,7 +74,7 @@ export const Round5Password: React.FC = () => {
           </h1>
         </div>
 
-        <Timer isCountUp={true} />
+        <Timer isCountUp={true} isActive={!loading && !!binaryClue} />
       </div>
 
       {feedback && (

@@ -5,12 +5,14 @@ interface TimerProps {
   initialSeconds?: number;
   onTick?: (elapsed: number) => void;
   isCountUp?: boolean;
+  isActive?: boolean;
 }
 
-export const Timer: React.FC<TimerProps> = ({ initialSeconds = 0, onTick, isCountUp = true }) => {
+export const Timer: React.FC<TimerProps> = ({ initialSeconds = 0, onTick, isCountUp = true, isActive = true }) => {
   const [seconds, setSeconds] = useState(initialSeconds);
 
   useEffect(() => {
+    if (!isActive) return;
     const interval = setInterval(() => {
       setSeconds((prev) => {
         const next = isCountUp ? prev + 1 : Math.max(0, prev - 1);
@@ -20,7 +22,7 @@ export const Timer: React.FC<TimerProps> = ({ initialSeconds = 0, onTick, isCoun
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isCountUp, onTick]);
+  }, [isCountUp, onTick, isActive]);
 
   const formatTime = (totalSec: number) => {
     const mins = Math.floor(totalSec / 60);

@@ -150,7 +150,7 @@ export const Round1Quiz: React.FC = () => {
           </h1>
         </div>
 
-        <Timer isCountUp={true} />
+        <Timer isCountUp={true} isActive={!!question && (countdown === null || countdown <= 0)} />
       </div>
 
       {feedback && (

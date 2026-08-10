@@ -11,7 +11,7 @@ export const Round4DataChallenge: React.FC = () => {
 
   const [question, setQuestion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [startTime] = useState<number>(Date.now());
+  const [startTime, setStartTime] = useState<number>(Date.now());
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -27,6 +27,7 @@ export const Round4DataChallenge: React.FC = () => {
       .get('/gameplay/round4/question')
       .then((res) => {
         setQuestion(res.data);
+        setStartTime(Date.now());
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
@@ -89,7 +90,7 @@ export const Round4DataChallenge: React.FC = () => {
           </h1>
         </div>
 
-        <Timer isCountUp={true} />
+        <Timer isCountUp={true} isActive={!loading && !!question} />
       </div>
 
       {feedback && (

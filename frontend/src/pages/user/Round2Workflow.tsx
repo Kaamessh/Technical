@@ -103,7 +103,7 @@ export const Round2Workflow: React.FC = () => {
           </h1>
         </div>
 
-        <Timer isCountUp={true} />
+        <Timer isCountUp={true} isActive={!loading && items.length > 0} />
       </div>
 
       <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
