@@ -13,9 +13,11 @@ export const AdminLeaderboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   // Manual Adjust Modal
-  const [adjustingTeam, setAdjustingTeam] = useState<{ id: string; name: string } | null>(null);
-  const [adjustPoints, setAdjustPoints] = useState<number>(10);
-  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustingTeam, setAdjustingTeam] = useState<{ id: string; name: string; currentPoints: number } | null>(null);
+  const [editMode, setEditMode] = useState<'set_total' | 'relative'>('set_total');
+  const [targetTotalPoints, setTargetTotalPoints] = useState<number>(0);
+  const [adjustPoints, setAdjustPoints] = useState<number>(0);
+  const [adjustReason, setAdjustReason] = useState('Admin point modification');
 
   useEffect(() => {
     apiClient.get('/events').then((res) => {
