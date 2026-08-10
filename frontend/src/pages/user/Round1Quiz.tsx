@@ -108,17 +108,18 @@ export const Round1Quiz: React.FC = () => {
         selected_index: index,
       });
 
-      if (res.data.correct && res.data.won) {
+      if (res.data.correct) {
         setTriggerConfetti(true);
         setFeedback({ message: `🏆 FIRST CORRECT ANSWER! +${res.data.points} PTS AWARDED!`, type: 'success' });
-        if (res.data.decode_hint) {
-          setDecodePair(res.data.decode_hint);
-          setShowDecode(true);
-        } else {
-          setTimeout(() => navigate('/team/round-2'), 2500);
-        }
       } else {
-        setFeedback({ message: res.data.message || 'Incorrect answer. Try again!', type: 'error' });
+        setFeedback({ message: `❌ Incorrect choice submitted (0 pts). Advancing...`, type: 'error' });
+      }
+
+      if (res.data.decode_hint) {
+        setDecodePair(res.data.decode_hint);
+        setShowDecode(true);
+      } else {
+        setTimeout(() => fetchCurrentQuestion(), 1500);
       }
     } catch (err: any) {
       setFeedback({ message: err.response?.data?.error || 'Submission error', type: 'error' });
