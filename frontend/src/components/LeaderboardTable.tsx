@@ -14,7 +14,7 @@ export interface LeaderboardEntry {
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
   currentTeamId?: string;
-  onAdjustPoints?: (teamId: string, teamName: string) => void;
+  onAdjustPoints?: (teamId: string, teamName: string, currentTotalPoints: number) => void;
   isAdmin?: boolean;
 }
 
@@ -117,9 +117,9 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                     {isAdmin && (
                       <td className="py-3.5 px-4 text-center">
                         <button
-                          onClick={() => onAdjustPoints && onAdjustPoints(entry.team_id, entry.team_name)}
+                          onClick={() => onAdjustPoints && onAdjustPoints(entry.team_id, entry.team_name, entry.total_points)}
                           className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors inline-flex items-center gap-1 text-xs font-semibold"
-                          title="Adjust Points"
+                          title="Edit Points"
                         >
                           <Edit3 className="w-4 h-4" /> Edit
                         </button>

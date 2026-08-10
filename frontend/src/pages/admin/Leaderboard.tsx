@@ -56,21 +56,35 @@ export const AdminLeaderboard: React.FC = () => {
     fetchLeaderboard();
   }, [selectedEventId, selectedSlotId]);
 
-  const handleOpenAdjustModal = (teamId: string, teamName: string) => {
-    setAdjustingTeam({ id: teamId, name: teamName });
-    setAdjustPoints(10);
-    setAdjustReason('Bonus performance reward');
+  const handleOpenAdjustModal = (teamId: string, teamName: string, currentTotalPoints: number) => {
+    setAdjustingTeam({ id: teamId, name: teamName, currentPoints: currentTotalPoints });
+    setTargetTotalPoints(currentTotalPoints);
+    setAdjustPoints(0);
+    setEditMode('set_total');
+    setAdjustReason('Admin point modification');
   };
 
   const handleSaveAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adjustingTeam) return;
 
+    let pointsToSubmit = 0;
+    if (editMode === 'set_total') {
+      pointsToSubmit = Number(targetTotalPoints) - adjustingTeam.currentPoints;
+    } else {
+      pointsToSubmit = Number(adjustPoints);
+    }
+
+    if (pointsToSubmit === 0 && editMode === 'set_total') {
+      alert('New total points matches current points. No change needed.');
+      return;
+    }
+
     try {
       await apiClient.post('/points/adjust', {
         team_id: adjustingTeam.id,
-        points: Number(adjustPoints),
-        reason: adjustReason,
+        points: pointsToSubmit,
+        reason: adjustReason || (editMode === 'set_total' ? `Direct total set to ${targetTotalPoints}` : 'Point adjustment'),
       });
       setAdjustingTeam(null);
       setAdjustReason('');
@@ -144,40 +158,87 @@ export const AdminLeaderboard: React.FC = () => {
         <LeaderboardTable entries={standings} isAdmin={true} onAdjustPoints={handleOpenAdjustModal} />
       )}
 
-      {/* Adjust Points Modal */}
+      {/* Edit Points Modal */}
       {adjustingTeam && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
           <div className="card max-w-md w-full p-6 shadow-xl">
-            <h3 className="text-lg font-extrabold text-slate-900 mb-1">Adjust Team Points</h3>
+            <h3 className="text-lg font-extrabold text-slate-900 mb-1">Edit Team Points</h3>
             <p className="text-xs text-slate-500 mb-4">
-              Team: <span className="font-bold text-slate-900">{adjustingTeam.name}</span>
+              Team: <span className="font-bold text-slate-900">{adjustingTeam.name}</span> | Current Total:{' '}
+              <span className="font-bold text-indigo-600 font-mono">{adjustingTeam.currentPoints} pts</span>
             </p>
 
             <form onSubmit={handleSaveAdjustment} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Points Adjustment (+/- numeric value)
-                </label>
-                <input
-                  type="number"
-                  required
-                  value={adjustPoints}
-                  onChange={(e) => setAdjustPoints(Number(e.target.value))}
-                  placeholder="e.g. 15 or -10"
-                  className="input-field text-sm font-mono"
-                />
+              {/* Mode Toggle */}
+              <div className="flex rounded-lg bg-slate-100 p-1 text-xs font-bold border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setEditMode('set_total')}
+                  className={`flex-1 py-1.5 rounded-md text-center transition-all ${
+                    editMode === 'set_total' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500'
+                  }`}
+                >
+                  Direct Total Points
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditMode('relative')}
+                  className={`flex-1 py-1.5 rounded-md text-center transition-all ${
+                    editMode === 'relative' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500'
+                  }`}
+                >
+                  +/- Add / Subtract
+                </button>
               </div>
+
+              {editMode === 'set_total' ? (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Set New Total Points
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={targetTotalPoints}
+                    onChange={(e) => setTargetTotalPoints(Number(e.target.value))}
+                    className="input-field text-lg font-mono font-bold text-indigo-600"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                    Calculated adjustment entry:{' '}
+                    <span className="font-bold text-slate-900 font-mono">
+                      {Number(targetTotalPoints) - adjustingTeam.currentPoints >= 0
+                        ? `+${Number(targetTotalPoints) - adjustingTeam.currentPoints}`
+                        : `${Number(targetTotalPoints) - adjustingTeam.currentPoints}`}{' '}
+                      pts
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Points Adjustment (+/- numeric value)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={adjustPoints}
+                    onChange={(e) => setAdjustPoints(Number(e.target.value))}
+                    placeholder="e.g. 50 or -20"
+                    className="input-field text-sm font-mono"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Audit Reason (Required)
+                  Audit Reason
                 </label>
                 <input
                   type="text"
                   required
                   value={adjustReason}
                   onChange={(e) => setAdjustReason(e.target.value)}
-                  placeholder="e.g. Manual penalty or speed bonus"
+                  placeholder="e.g. Admin manual correction"
                   className="input-field text-sm"
                 />
               </div>
@@ -187,7 +248,7 @@ export const AdminLeaderboard: React.FC = () => {
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary text-xs font-bold">
-                  Save Audit Entry
+                  Save & Update Points
                 </button>
               </div>
             </form>
