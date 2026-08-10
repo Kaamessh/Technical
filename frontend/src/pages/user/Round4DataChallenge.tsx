@@ -51,14 +51,15 @@ export const Round4DataChallenge: React.FC = () => {
       if (res.data.correct) {
         setTriggerConfetti(true);
         setFeedback({ message: `📊 DATA ANOMALY SPOT ON! +${res.data.points} PTS AWARDED!`, type: 'success' });
-        if (res.data.decode_hint) {
-          setDecodePair(res.data.decode_hint);
-          setShowDecode(true);
-        } else {
-          setTimeout(() => navigate('/team/round-5'), 2500);
-        }
       } else {
-        setFeedback({ message: res.data.message || 'Incorrect choice. Re-read the scenario!', type: 'error' });
+        setFeedback({ message: `❌ Incorrect choice submitted (0 pts). Advancing to Round 5...`, type: 'error' });
+      }
+
+      if (res.data.decode_hint) {
+        setDecodePair(res.data.decode_hint);
+        setShowDecode(true);
+      } else {
+        setTimeout(() => navigate('/team/round-5'), 2500);
       }
     } catch (err: any) {
       setFeedback({ message: err.response?.data?.error || 'Submission error', type: 'error' });

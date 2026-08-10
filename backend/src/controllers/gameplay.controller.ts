@@ -85,7 +85,21 @@ export async function getRound1Current(req: AuthenticatedTeamRequest, res: Respo
         });
       }
 
-      // If no questions left in queue and team didn't win any, advance team with 0 points
+      // Check if queue was ever created for this slot
+      const { data: allQueueItems } = await supabase
+        .from('slot_question_queue')
+        .select('id')
+        .eq('slot_id', slotId);
+
+      if (!allQueueItems || allQueueItems.length === 0) {
+        return res.json({
+          completed: false,
+          question: null,
+          message: 'Waiting for question broadcast.',
+        });
+      }
+
+      // If queue exists and all questions are exhausted (won/expired), complete Round 1
       await completeTeamRound(teamId!, slotId, 1, 0, 0, 'auto: round 1 queue exhausted');
       return res.json({ completed: true, message: 'Round 1 queue exhausted. Moving to Round 2.', decode_hint: null });
     }
@@ -372,17 +386,23 @@ export async function submitRound4Answer(req: AuthenticatedTeamRequest, res: Res
 
     if (!question) return res.status(404).json({ error: 'Question not found' });
 
-    if (question.correct_index !== selected_index) {
-      return res.json({ correct: false, message: 'Incorrect answer. Try again!' });
+    const isCorrect = question.correct_index === selected_index;
+    const timeTakenSec = time_taken || 10;
+
+    let result;
+    if (isCorrect) {
+      result = await completeTeamRound(teamId!, slotId!, 4, timeTakenSec);
+    } else {
+      result = await completeTeamRound(teamId!, slotId!, 4, timeTakenSec, 0, 'incorrect answer submitted');
     }
 
-    const result = await completeTeamRound(teamId!, slotId!, 4, time_taken || 10);
     const decodeHint = await getTeamDecodeHintPair(teamId!, 4);
 
     return res.json({
-      correct: true,
-      points: result.points,
+      correct: isCorrect,
+      points: isCorrect ? result.points : 0,
       decode_hint: decodeHint,
+      message: isCorrect ? 'Correct answer!' : 'Incorrect answer submitted.',
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
