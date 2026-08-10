@@ -3,6 +3,7 @@ import { supabase } from '../services/supabaseClient';
 import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware';
 import { AuthenticatedTeamRequest } from '../middlewares/authTeam.middleware';
 import { broadcastToSlot } from '../services/realtime.service';
+import { signTeamToken } from '../utils/jwt';
 
 export async function createSlot(req: AuthenticatedAdminRequest, res: Response) {
   try {
@@ -156,7 +157,14 @@ export async function joinSlot(req: AuthenticatedTeamRequest, res: Response) {
       }
     }
 
-    return res.json({ team: updatedTeam, slot });
+    const token = signTeamToken({
+      id: updatedTeam.id,
+      team_name: updatedTeam.team_name,
+      event_id: updatedTeam.event_id,
+      slot_id: updatedTeam.slot_id,
+    });
+
+    return res.json({ team: updatedTeam, slot, token });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }

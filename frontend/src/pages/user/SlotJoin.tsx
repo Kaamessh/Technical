@@ -19,6 +19,9 @@ export const SlotJoin: React.FC = () => {
 
     try {
       const res = await apiClient.post('/slots/join', { slot_code: slotCode });
+      if (res.data.token) {
+        localStorage.setItem('auth_token', res.data.token);
+      }
       updateTeamSlot(res.data.slot.id);
       navigate('/team/play');
     } catch (err: any) {
