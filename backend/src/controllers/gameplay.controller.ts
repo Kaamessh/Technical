@@ -72,11 +72,16 @@ export async function getRound1Current(req: AuthenticatedTeamRequest, res: Respo
           .eq('id', pendingItem.question_id)
           .single();
 
+        if (!q) {
+          return res.status(500).json({ error: 'Pending question not found in database.' });
+        }
+
         return res.json({
           completed: false,
           queue_id: pendingItem.id,
           sequence_order: pendingItem.sequence_order,
           question: q,
+          live_started_at: pendingItem.live_started_at,
         });
       }
 
@@ -91,6 +96,10 @@ export async function getRound1Current(req: AuthenticatedTeamRequest, res: Respo
       .select('id, question_text, options')
       .eq('id', queueItem.question_id)
       .single();
+
+    if (!q) {
+      return res.status(500).json({ error: 'Live question not found in database.' });
+    }
 
     return res.json({
       completed: false,
