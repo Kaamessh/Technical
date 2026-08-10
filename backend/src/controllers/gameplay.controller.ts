@@ -104,6 +104,24 @@ export async function getRound1Current(req: AuthenticatedTeamRequest, res: Respo
       return res.json({ completed: true, message: 'Round 1 queue exhausted. Moving to Round 2.', decode_hint: null });
     }
 
+    // Check if team has already attempted this live question wrongly
+    const { data: wrongAttempt } = await supabase
+      .from('points_ledger')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('round_number', 1)
+      .eq('reason', `incorrect attempt: ${queueItem.id}`)
+      .limit(1);
+
+    if (wrongAttempt && wrongAttempt.length > 0) {
+      return res.json({
+        completed: false,
+        question: null,
+        waiting_for_next: true,
+        message: 'Incorrect answer submitted. Waiting for next question or round finish...',
+      });
+    }
+
     // Fetch question details (sanitized)
     const { data: q } = await supabase
       .from('quiz_questions')
@@ -170,6 +188,7 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
         .select();
 
       if (lockResult && lockResult.length > 0) {
+        // Winning team completes Round 1 & gets rank-based points
         const result = await completeTeamRound(teamId!, slotId!, 1, timeTakenSec);
         pointsAwarded = result.points;
         decodeHint = await getTeamDecodeHintPair(teamId!, 1);
@@ -181,7 +200,7 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
           team_name: req.team?.team_name,
         });
 
-        // Advance queue: find next pending question
+        // Advance queue: find next pending question for remaining teams
         const { data: nextPending } = await supabase
           .from('slot_question_queue')
           .select('id')
@@ -204,36 +223,54 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
         }
       }
     } else {
-      // Incorrect answer: mark question expired & complete round with 0 pts
-      await supabase
-        .from('slot_question_queue')
-        .update({ status: 'expired' })
-        .eq('id', queue_id)
-        .eq('status', 'live');
+      // Incorrect answer: record attempt so team cannot re-attempt this question
+      await supabase.from('points_ledger').insert({
+        team_id: teamId,
+        round_number: 1,
+        points: 0,
+        reason: `incorrect attempt: ${queue_id}`,
+      });
 
-      await completeTeamRound(teamId!, slotId!, 1, timeTakenSec, 0, 'incorrect answer submitted');
-      decodeHint = await getTeamDecodeHintPair(teamId!, 1);
+      // Check if all teams in slot have attempted this question wrongly
+      const { data: slotTeams } = await supabase.from('teams').select('id').eq('slot_id', slotId);
+      const totalSlotTeams = slotTeams ? slotTeams.length : 1;
 
-      // Advance queue if pending question exists
-      const { data: nextPending } = await supabase
-        .from('slot_question_queue')
-        .select('id')
-        .eq('slot_id', slotId)
-        .eq('status', 'pending')
-        .order('sequence_order', { ascending: true })
-        .limit(1)
-        .single();
+      const { data: wrongAttempts } = await supabase
+        .from('points_ledger')
+        .select('team_id')
+        .eq('round_number', 1)
+        .eq('reason', `incorrect attempt: ${queue_id}`);
 
-      if (nextPending) {
+      const wrongTeamCount = wrongAttempts ? wrongAttempts.length : 0;
+
+      // If all remaining teams guessed wrong, expire question & advance
+      if (wrongTeamCount >= totalSlotTeams) {
         await supabase
           .from('slot_question_queue')
-          .update({ status: 'live', live_started_at: new Date().toISOString() })
-          .eq('id', nextPending.id);
+          .update({ status: 'expired' })
+          .eq('id', queue_id)
+          .eq('status', 'live');
 
-        await broadcastToSlot(slotId!, 'question:live', {
-          slot_id: slotId,
-          queue_id: nextPending.id,
-        });
+        const { data: nextPending } = await supabase
+          .from('slot_question_queue')
+          .select('id')
+          .eq('slot_id', slotId)
+          .eq('status', 'pending')
+          .order('sequence_order', { ascending: true })
+          .limit(1)
+          .single();
+
+        if (nextPending) {
+          await supabase
+            .from('slot_question_queue')
+            .update({ status: 'live', live_started_at: new Date().toISOString() })
+            .eq('id', nextPending.id);
+
+          await broadcastToSlot(slotId!, 'question:live', {
+            slot_id: slotId,
+            queue_id: nextPending.id,
+          });
+        }
       }
     }
 
@@ -241,7 +278,8 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
       correct: isCorrect,
       points: pointsAwarded,
       decode_hint: decodeHint,
-      message: isCorrect ? 'Correct answer!' : 'Incorrect choice submitted (0 pts).',
+      waiting_for_next: !isCorrect,
+      message: isCorrect ? 'Correct answer!' : 'Incorrect choice submitted (0 pts). Waiting for next question...',
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

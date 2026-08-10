@@ -188,7 +188,7 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
       // Get all teams in slot
       const { data: teams } = await supabase.from('teams').select('id').eq('slot_id', id);
       const teamCount = teams ? teams.length : 1;
-      const queueLength = Math.max(1, teamCount);
+      const queueLength = Math.max(1, teamCount - 1);
 
       // Fetch questions from quiz_questions bank for this event
       const { data: questions } = await supabase

@@ -27,6 +27,8 @@ export const Round1Quiz: React.FC = () => {
   const [triggerConfetti, setTriggerConfetti] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
 
+  const [waitingForNext, setWaitingForNext] = useState(false);
+
   const fetchCurrentQuestion = async () => {
     try {
       const res = await apiClient.get('/gameplay/round1/current');
@@ -40,9 +42,15 @@ export const Round1Quiz: React.FC = () => {
         return;
       }
 
-      setQueueId(res.data.queue_id);
-      setSequenceOrder(res.data.sequence_order);
-      setQuestion(res.data.question);
+      if (res.data.waiting_for_next) {
+        setWaitingForNext(true);
+        setQuestion(null);
+      } else {
+        setWaitingForNext(false);
+        setQueueId(res.data.queue_id);
+        setSequenceOrder(res.data.sequence_order);
+        setQuestion(res.data.question);
+      }
 
       if (res.data.sequence_order === 1 && res.data.live_started_at) {
         const startedAt = new Date(res.data.live_started_at).getTime();
@@ -173,9 +181,15 @@ export const Round1Quiz: React.FC = () => {
         <div className="card text-center py-12 text-slate-400">Synchronizing live question...</div>
       ) : !question ? (
         <div className="card text-center py-12">
-          <Lock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-slate-800">Waiting for Question Broadcast</h3>
-          <p className="text-xs text-slate-500">The event organizer will trigger live question queue for your slot.</p>
+          <Lock className={`w-12 h-12 mx-auto mb-3 ${waitingForNext ? 'text-amber-500 animate-pulse' : 'text-slate-300'}`} />
+          <h3 className="text-lg font-bold text-slate-800">
+            {waitingForNext ? 'Attempt Recorded — Waiting for Next Question' : 'Waiting for Question Broadcast'}
+          </h3>
+          <p className="text-xs text-slate-500 mt-1">
+            {waitingForNext
+              ? 'Your choice for this question was recorded. Waiting for the question to conclude or next broadcast...'
+              : 'The event organizer will trigger live question queue for your slot.'}
+          </p>
         </div>
       ) : countdown !== null && countdown > 0 ? (
         <div className="card text-center py-20 border-indigo-200 shadow-xl bg-indigo-50">
