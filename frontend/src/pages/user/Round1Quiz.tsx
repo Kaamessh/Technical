@@ -25,6 +25,7 @@ export const Round1Quiz: React.FC = () => {
   const [showDecode, setShowDecode] = useState(false);
   const [decodePair, setDecodePair] = useState<number[] | null>(null);
   const [triggerConfetti, setTriggerConfetti] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   const fetchCurrentQuestion = async () => {
     try {
@@ -42,12 +43,28 @@ export const Round1Quiz: React.FC = () => {
       setQueueId(res.data.queue_id);
       setSequenceOrder(res.data.sequence_order);
       setQuestion(res.data.question);
+
+      if (res.data.sequence_order === 1 && res.data.live_started_at) {
+        const startedAt = new Date(res.data.live_started_at).getTime();
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < 5000) {
+          setCountdown(Math.ceil((5000 - elapsed) / 1000));
+        }
+      }
     } catch (err: any) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (countdown === null || countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => (prev && prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
 
   useEffect(() => {
     fetchCurrentQuestion();
@@ -158,6 +175,11 @@ export const Round1Quiz: React.FC = () => {
           <Lock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
           <h3 className="text-lg font-bold text-slate-800">Waiting for Question Broadcast</h3>
           <p className="text-xs text-slate-500">The event organizer will trigger live question queue for your slot.</p>
+        </div>
+      ) : countdown !== null && countdown > 0 ? (
+        <div className="card text-center py-20 border-indigo-200 shadow-xl bg-indigo-50">
+          <h2 className="text-4xl font-extrabold text-indigo-900 mb-4 animate-pulse">Game Starting In...</h2>
+          <div className="text-8xl font-black text-indigo-600 font-mono">{countdown}</div>
         </div>
       ) : (
         <div className="card p-8 border-indigo-100 shadow-lg">
