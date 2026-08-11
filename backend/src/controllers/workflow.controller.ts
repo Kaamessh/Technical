@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { supabase } from '../services/supabaseClient';
 import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware';
 
+import { cleanImagePath } from '../utils/imageSanitizer';
+
 export async function createWorkflowChallenge(req: AuthenticatedAdminRequest, res: Response) {
   try {
     const { event_id, title, image_urls } = req.body;
@@ -9,9 +11,11 @@ export async function createWorkflowChallenge(req: AuthenticatedAdminRequest, re
       return res.status(400).json({ error: 'event_id and image_urls (array of at least 2 URLs) required' });
     }
 
+    const sanitizedUrls = image_urls.map((u: string) => cleanImagePath(u));
+
     const { data: challenge, error } = await supabase
       .from('workflow_challenges')
-      .insert({ event_id, title: title || 'Workflow Sequence Challenge', image_urls })
+      .insert({ event_id, title: title || 'Workflow Sequence Challenge', image_urls: sanitizedUrls })
       .select()
       .single();
 
