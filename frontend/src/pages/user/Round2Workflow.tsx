@@ -5,21 +5,24 @@ import { resolveImageUrl } from '../../lib/imageUtils';
 import { Timer } from '../../components/Timer';
 import { DecodePopup } from '../../components/DecodePopup';
 import { ConfettiEffect } from '../../components/ConfettiEffect';
-import { Layers, CheckCircle2, AlertCircle, Sparkles, Shuffle, ArrowLeft, ArrowRight, Move } from 'lucide-react';
+import { Layers, CheckCircle2, AlertCircle, Sparkles, Move, RefreshCw, Shuffle } from 'lucide-react';
 
 export const Round2Workflow: React.FC = () => {
   const navigate = useNavigate();
 
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
-  const [items, setItems] = useState<string[]>([]);
-  const [selectedTapIndex, setSelectedTapIndex] = useState<number | null>(null);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  
+  // All items fetched from backend: [{ id: '...', url: '...' }, ...]
+  const [allItems, setAllItems] = useState<{ id: string; url: string }[]>([]);
+  // Placed slots array: (string | null)[] storing item IDs
+  const [slots, setSlots] = useState<(string | null)[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [startTime] = useState<number>(Date.now());
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
   // Decode popup
   const [showDecode, setShowDecode] = useState(false);
@@ -33,52 +36,81 @@ export const Round2Workflow: React.FC = () => {
         setChallengeId(res.data.id);
         setTitle(res.data.title);
         const rawItems: { url: string }[] = res.data.items || [];
-        setItems(rawItems.map((item) => item.url));
+        const items = rawItems.map((item, idx) => ({
+          id: `img-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+          url: item.url,
+        }));
+        setAllItems(items);
+        setSlots(new Array(items.length).fill(null));
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
 
-  // Swap two items at indexA and indexB
-  const handleSwap = (idxA: number, idxB: number) => {
-    if (idxA === idxB || idxA < 0 || idxB < 0 || idxA >= items.length || idxB >= items.length) return;
-    setItems((prev) => {
-      const next = [...prev];
-      const temp = next[idxA];
-      next[idxA] = next[idxB];
-      next[idxB] = temp;
+  // Derived unplaced items in pool
+  const placedIds = new Set(slots.filter((id): id is string => id !== null));
+  const poolItems = allItems.filter((item) => !placedIds.has(item.id));
+
+  // Place item into target slot or first empty slot
+  const handlePlaceItem = (itemId: string, targetSlotIdx?: number) => {
+    setSlots((prevSlots) => {
+      const next = [...prevSlots];
+      
+      // If item is already in a slot, clear its old position
+      const currentIdx = next.indexOf(itemId);
+      if (currentIdx !== -1) {
+        next[currentIdx] = null;
+      }
+
+      if (targetSlotIdx !== undefined && targetSlotIdx >= 0 && targetSlotIdx < next.length) {
+        next[targetSlotIdx] = itemId;
+      } else {
+        const emptyIdx = next.findIndex((s) => s === null);
+        if (emptyIdx !== -1) {
+          next[emptyIdx] = itemId;
+        }
+      }
       return next;
     });
-    setSelectedTapIndex(null);
   };
 
-  // Handle tap / click selection
-  const handleTap = (index: number) => {
-    if (selectedTapIndex === null) {
-      setSelectedTapIndex(index);
-    } else {
-      handleSwap(selectedTapIndex, index);
-    }
+  // Remove item from slot back to pool
+  const handleRemoveFromSlot = (slotIdx: number) => {
+    setSlots((prev) => {
+      const next = [...prev];
+      next[slotIdx] = null;
+      return next;
+    });
   };
 
-  // Random shuffle
-  const handleShuffle = () => {
-    setItems((prev) => [...prev].sort(() => 0.5 - Math.random()));
-    setSelectedTapIndex(null);
+  // Reset all slots back to pool
+  const handleResetAll = () => {
+    setSlots(new Array(allItems.length).fill(null));
+  };
+
+  // Shuffle floating pool items
+  const handleShufflePool = () => {
+    setAllItems((prev) => [...prev].sort(() => 0.5 - Math.random()));
   };
 
   const handleSubmit = async () => {
-    if (!challengeId || submitting || items.length === 0) return;
+    if (!challengeId || submitting) return;
+
+    if (slots.some((s) => s === null)) {
+      setFeedback({ message: '⚠️ Please place an image into every order box before submitting!', type: 'error' });
+      return;
+    }
 
     setSubmitting(true);
     setFeedback(null);
 
     const timeTaken = Math.round((Date.now() - startTime) / 1000);
+    const submittedUrls = slots.map((id) => allItems.find((item) => item.id === id)?.url || '');
 
     try {
       const res = await apiClient.post('/gameplay/round2/submit', {
         challenge_id: challengeId,
-        submitted_urls: items,
+        submitted_urls: submittedUrls,
         time_taken: timeTaken,
       });
 
@@ -92,7 +124,7 @@ export const Round2Workflow: React.FC = () => {
           setTimeout(() => navigate('/team/round-3'), 2500);
         }
       } else {
-        setFeedback({ message: res.data.message || 'Sequence incorrect. Rearrange the pieces and try again!', type: 'error' });
+        setFeedback({ message: res.data.message || 'Sequence incorrect. Rearrange and try again!', type: 'error' });
       }
     } catch (err: any) {
       setFeedback({ message: err.response?.data?.error || 'Submission error', type: 'error' });
@@ -124,18 +156,19 @@ export const Round2Workflow: React.FC = () => {
           </h1>
         </div>
 
-        <Timer isCountUp={true} isActive={!loading && items.length > 0} />
+        <Timer isCountUp={true} isActive={!loading && allItems.length > 0} />
       </div>
 
-      <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium flex items-center justify-between gap-3">
         <div>
-          💡 <strong>Task Instruction:</strong> Drag & drop images onto each other OR tap an image then tap another to swap them into the correct sequence!
+          💡 <strong>Task Instruction:</strong> Drag or click floating images from the pool below into the numbered <strong>Order Boxes</strong> in the correct workflow sequence.
         </div>
         <button
-          onClick={handleShuffle}
-          className="btn-secondary text-xs py-1.5 px-3 font-bold gap-1 flex items-center shadow-xs"
+          type="button"
+          onClick={handleShufflePool}
+          className="btn-secondary text-xs py-1.5 px-3 font-bold gap-1 flex items-center shadow-xs shrink-0"
         >
-          <Shuffle className="w-4 h-4 text-indigo-600" /> Shuffle Images
+          <Shuffle className="w-3.5 h-3.5 text-indigo-600" /> Shuffle Pool
         </button>
       </div>
 
@@ -154,96 +187,146 @@ export const Round2Workflow: React.FC = () => {
 
       {loading ? (
         <div className="card text-center py-12 text-slate-400">Loading workflow challenge...</div>
-      ) : items.length === 0 ? (
+      ) : allItems.length === 0 ? (
         <div className="card text-center py-12 text-slate-400">No workflow challenge available.</div>
       ) : (
         <div className="space-y-8">
-          <div className={`grid gap-4 ${
-            items.length <= 3
-              ? 'grid-cols-1 sm:grid-cols-3'
-              : items.length === 4
-              ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'
-              : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
-          }`}>
-            {items.map((url, idx) => {
-              const isTapSelected = selectedTapIndex === idx;
-              return (
-                <div
-                  key={idx}
-                  draggable
-                  onDragStart={() => setDraggedIndex(idx)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (draggedIndex !== null) {
-                      handleSwap(draggedIndex, idx);
-                      setDraggedIndex(null);
-                    }
-                  }}
-                  onClick={() => handleTap(idx)}
-                  className={`card p-3 border-2 transition-all cursor-grab active:cursor-grabbing flex flex-col justify-between select-none ${
-                    isTapSelected
-                      ? 'border-amber-500 bg-amber-50/50 ring-4 ring-amber-200 shadow-xl scale-105'
-                      : 'border-slate-200 hover:border-indigo-400 hover:shadow-md'
-                  }`}
+          {/* SECTION 1: ORDER BOXES */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-600" /> Sequence Order Boxes ({slots.filter(Boolean).length}/{slots.length})
+              </h3>
+              {slots.some((s) => s !== null) && (
+                <button
+                  type="button"
+                  onClick={handleResetAll}
+                  className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200"
                 >
-                  <div>
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
-                      <span className="font-mono text-indigo-600">POSITION #{idx + 1}</span>
-                      {isTapSelected && (
-                        <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-bold animate-pulse">
-                          TAP TARGET TO SWAP
+                  <RefreshCw className="w-3 h-3" /> Reset Order Boxes
+                </button>
+              )}
+            </div>
+
+            <div className={`grid gap-4 ${
+              slots.length <= 3
+                ? 'grid-cols-1 sm:grid-cols-3'
+                : slots.length === 4
+                ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4'
+                : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+            }`}>
+              {slots.map((slotItemId, idx) => {
+                const item = slotItemId ? allItems.find((i) => i.id === slotItemId) : null;
+                return (
+                  <div
+                    key={idx}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedItemId) {
+                        handlePlaceItem(draggedItemId, idx);
+                        setDraggedItemId(null);
+                      }
+                    }}
+                    className={`card p-3 border-2 transition-all flex flex-col justify-between min-h-[190px] ${
+                      item
+                        ? 'border-indigo-500 bg-indigo-50/20 shadow-md'
+                        : 'border-dashed border-slate-300 bg-slate-50/50 hover:border-indigo-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-xs font-bold mb-2">
+                      <span className="font-mono text-indigo-600">STEP #{idx + 1}</span>
+                      {item && (
+                        <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-mono">
+                          Click to Remove
                         </span>
                       )}
                     </div>
 
-                    <div className="aspect-video rounded-lg overflow-hidden bg-slate-900 border border-slate-200 mb-3 relative group">
-                      <img
-                        src={resolveImageUrl(url)}
-                        alt={`Step ${idx + 1}`}
-                        className="w-full h-full object-cover pointer-events-none"
-                      />
-                      <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
-                        <Move className="w-4 h-4" /> Drag or Tap to Swap
+                    {item ? (
+                      <div
+                        onClick={() => handleRemoveFromSlot(idx)}
+                        className="aspect-video rounded-lg overflow-hidden bg-slate-900 border border-indigo-200 relative group cursor-pointer"
+                      >
+                        <img
+                          src={resolveImageUrl(item.url)}
+                          alt={`Placed Step ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
+                          Click to Remove
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center p-4 border border-dashed border-slate-200 rounded-lg text-slate-400">
+                        <Move className="w-6 h-6 mb-1 text-slate-300" />
+                        <span className="text-[11px] font-bold text-slate-400 text-center">
+                          Drop or Tap Image Here
+                        </span>
+                      </div>
+                    )}
                   </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-1">
-                    <button
-                      type="button"
-                      disabled={idx === 0}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSwap(idx, idx - 1);
-                      }}
-                      className="p-1.5 rounded bg-slate-100 hover:bg-indigo-100 text-slate-700 disabled:opacity-30 text-[11px] font-bold flex items-center gap-0.5"
-                    >
-                      <ArrowLeft className="w-3 h-3" /> Left
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={idx === items.length - 1}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSwap(idx, idx + 1);
-                      }}
-                      className="p-1.5 rounded bg-slate-100 hover:bg-indigo-100 text-slate-700 disabled:opacity-30 text-[11px] font-bold flex items-center gap-0.5"
-                    >
-                      Right <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
-          <div className="text-center pt-4">
+          {/* SECTION 2: FLOATING IMAGES POOL */}
+          <div className="card p-6 bg-slate-900 border-slate-800 text-white shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                <Layers className="w-4 h-4" /> Floating Images Pool ({poolItems.length} remaining)
+              </h3>
+              {poolItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleShufflePool}
+                  className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700"
+                >
+                  <Shuffle className="w-3 h-3 text-amber-400" /> Shuffle Pool
+                </button>
+              )}
+            </div>
+
+            {poolItems.length === 0 ? (
+              <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                All images placed into order boxes! Click "Submit Final Sequence" below when ready.
+              </div>
+            ) : (
+              <div className={`grid gap-4 ${
+                poolItems.length <= 3
+                  ? 'grid-cols-1 sm:grid-cols-3'
+                  : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+              }`}>
+                {poolItems.map((item) => (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={() => setDraggedItemId(item.id)}
+                    onDragEnd={() => setDraggedItemId(null)}
+                    onClick={() => handlePlaceItem(item.id)}
+                    className="group relative aspect-video rounded-xl overflow-hidden bg-slate-950 border-2 border-slate-700 hover:border-amber-400 cursor-grab active:cursor-grabbing transition-all hover:scale-105 shadow-lg"
+                  >
+                    <img
+                      src={resolveImageUrl(item.url)}
+                      alt="Floating challenge piece"
+                      className="w-full h-full object-cover pointer-events-none"
+                    />
+                    <div className="absolute inset-0 bg-slate-900/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-center">
+                      <span className="text-xs font-extrabold text-amber-300">Tap / Drag to Place</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* SUBMIT BUTTON */}
+          <div className="text-center">
             <button
               onClick={handleSubmit}
-              disabled={submitting}
-              className="btn-primary py-3.5 px-10 text-base font-extrabold shadow-xl shadow-indigo-200"
+              disabled={submitting || slots.some((s) => s === null)}
+              className="btn-primary py-3.5 px-10 text-base font-extrabold shadow-xl shadow-indigo-200 disabled:opacity-50"
             >
               {submitting ? 'Verifying Sequence...' : 'Submit Final Sequence'}
             </button>
