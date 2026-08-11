@@ -30,6 +30,10 @@ app.use(
 );
 app.use(express.json());
 
+import path from 'path';
+app.use('/Images', express.static(path.join(__dirname, '../../Images')));
+app.use('/images', express.static(path.join(__dirname, '../../Images')));
+
 // Health Check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

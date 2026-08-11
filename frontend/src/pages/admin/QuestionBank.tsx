@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../../lib/apiClient';
+import { resolveImageUrl } from '../../lib/imageUtils';
 import { Plus, Trash2, HelpCircle, Image, Sparkles, Database, KeyRound, CheckCircle } from 'lucide-react';
 
 export const QuestionBank: React.FC = () => {
@@ -339,28 +340,49 @@ export const QuestionBank: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Image URLs in Correct Sequence (1..4)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Image URLs / Paths ({r2Urls.length} steps)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setR2Urls([...r2Urls, ''])}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100"
+                  >
+                    <Plus className="w-3 h-3" /> Add Image Step
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500">Paste web URLs or local paths (e.g. "Images/Screenshot 2026-08-10 153031.png")</p>
                 {r2Urls.map((url, idx) => (
-                  <input
-                    key={idx}
-                    type="url"
-                    required
-                    value={url}
-                    onChange={(e) => {
-                      const copy = [...r2Urls];
-                      copy[idx] = e.target.value;
-                      setR2Urls(copy);
-                    }}
-                    placeholder={`Step ${idx + 1} Image URL`}
-                    className="input-field text-xs py-2"
-                  />
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={url}
+                      onChange={(e) => {
+                        const copy = [...r2Urls];
+                        copy[idx] = e.target.value;
+                        setR2Urls(copy);
+                      }}
+                      placeholder={`Step ${idx + 1} Image Path or URL`}
+                      className="input-field text-xs py-2 flex-1"
+                    />
+                    {r2Urls.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setR2Urls(r2Urls.filter((_, i) => i !== idx))}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded"
+                        title="Remove step"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
 
               <button type="submit" className="btn-primary w-full text-xs py-2.5 font-bold">
-                Save Workflow Challenge
+                Save Workflow Challenge ({r2Urls.length} Steps)
               </button>
             </form>
           </div>
@@ -370,10 +392,10 @@ export const QuestionBank: React.FC = () => {
             {workflowChallenges.map((wf) => (
               <div key={wf.id} className="card p-4 border-slate-200">
                 <h4 className="font-bold text-slate-900 mb-3">{wf.title}</h4>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   {(wf.image_urls as string[]).map((url, idx) => (
                     <div key={idx} className="relative rounded bg-slate-100 overflow-hidden border border-slate-200 aspect-video">
-                      <img src={url} alt={`Step ${idx + 1}`} className="w-full h-full object-cover" />
+                      <img src={resolveImageUrl(url)} alt={`Step ${idx + 1}`} className="w-full h-full object-cover" />
                       <span className="absolute bottom-1 left-1 bg-slate-900/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded font-mono">
                         Step {idx + 1}
                       </span>
@@ -394,26 +416,28 @@ export const QuestionBank: React.FC = () => {
             <form onSubmit={handleAddR3} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Image A URL
+                  Image A URL / Local Path
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   required
                   value={r3ImageA}
                   onChange={(e) => setR3ImageA(e.target.value)}
+                  placeholder="e.g. Images/Screenshot... or http://..."
                   className="input-field text-xs py-2"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Image B URL
+                  Image B URL / Local Path
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   required
                   value={r3ImageB}
                   onChange={(e) => setR3ImageB(e.target.value)}
+                  placeholder="e.g. Images/Screenshot... or http://..."
                   className="input-field text-xs py-2"
                 />
               </div>
@@ -444,13 +468,13 @@ export const QuestionBank: React.FC = () => {
               <div key={ch.id} className="card p-4 border-slate-200">
                 <div className="grid grid-cols-2 gap-4">
                   <div className={`relative rounded overflow-hidden border-2 ${ch.correct_side === 'A' ? 'border-amber-500' : 'border-slate-200'}`}>
-                    <img src={ch.image_a_url} alt="Image A" className="w-full h-40 object-cover" />
+                    <img src={resolveImageUrl(ch.image_a_url)} alt="Image A" className="w-full h-40 object-cover" />
                     <span className="absolute top-2 left-2 bg-slate-900 text-white font-bold text-xs px-2 py-0.5 rounded">
                       Option A {ch.correct_side === 'A' && '(AI)'}
                     </span>
                   </div>
                   <div className={`relative rounded overflow-hidden border-2 ${ch.correct_side === 'B' ? 'border-amber-500' : 'border-slate-200'}`}>
-                    <img src={ch.image_b_url} alt="Image B" className="w-full h-40 object-cover" />
+                    <img src={resolveImageUrl(ch.image_b_url)} alt="Image B" className="w-full h-40 object-cover" />
                     <span className="absolute top-2 left-2 bg-slate-900 text-white font-bold text-xs px-2 py-0.5 rounded">
                       Option B {ch.correct_side === 'B' && '(AI)'}
                     </span>

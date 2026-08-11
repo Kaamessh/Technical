@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../lib/apiClient';
+import { resolveImageUrl } from '../../lib/imageUtils';
 import { Timer } from '../../components/Timer';
 import { DecodePopup } from '../../components/DecodePopup';
 import { ConfettiEffect } from '../../components/ConfettiEffect';
@@ -130,7 +131,7 @@ export const Round3AiOrReal: React.FC = () => {
               </div>
 
               <div className="aspect-square rounded-xl overflow-hidden bg-slate-900 border border-slate-200 mb-4">
-                <img src={challenge.image_a_url} alt="Option A" className="w-full h-full object-cover" />
+                <img src={resolveImageUrl(challenge.image_a_url)} alt="Option A" className="w-full h-full object-cover" />
               </div>
             </div>
 
@@ -156,7 +157,7 @@ export const Round3AiOrReal: React.FC = () => {
               </div>
 
               <div className="aspect-square rounded-xl overflow-hidden bg-slate-900 border border-slate-200 mb-4">
-                <img src={challenge.image_b_url} alt="Option B" className="w-full h-full object-cover" />
+                <img src={resolveImageUrl(challenge.image_b_url)} alt="Option B" className="w-full h-full object-cover" />
               </div>
             </div>
 
