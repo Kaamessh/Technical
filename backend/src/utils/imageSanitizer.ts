@@ -8,16 +8,10 @@ export function cleanImagePath(url: string | null | undefined): string {
   if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) return cleaned;
 
   cleaned = cleaned.replace(/\\/g, '/');
-  cleaned = cleaned.replace(/^file:\/\/\//i, '');
-  cleaned = cleaned.replace(/^[a-zA-Z]:\//, '');
-  cleaned = cleaned.replace(/^.*\/Images\//i, 'Images/');
 
-  if (!cleaned.toLowerCase().startsWith('images/')) {
-    if (cleaned.startsWith('/')) cleaned = cleaned.substring(1);
-    if (!cleaned.toLowerCase().startsWith('images/')) {
-      cleaned = `Images/${cleaned}`;
-    }
-  }
+  const parts = cleaned.split('/');
+  const filename = parts.pop() || '';
+  if (!filename) return '';
 
-  return cleaned;
+  return `Images/${filename}`;
 }
