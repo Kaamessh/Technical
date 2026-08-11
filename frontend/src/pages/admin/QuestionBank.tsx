@@ -167,9 +167,44 @@ export const QuestionBank: React.FC = () => {
     }
   };
 
+  const handleDeleteR2 = async (id: string) => {
+    if (!confirm('Delete this workflow challenge from database?')) return;
+    try {
+      await apiClient.delete(`/workflow-challenges/${id}`);
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete workflow challenge');
+    }
+  };
+
+  const handleDeleteR3 = async (id: string) => {
+    if (!confirm('Delete this AI challenge from database?')) return;
+    try {
+      await apiClient.delete(`/ai-or-real/${id}`);
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete challenge');
+    }
+  };
+
+  const handleDeleteR4 = async (id: string) => {
+    if (!confirm('Delete this data challenge question from database?')) return;
+    try {
+      await apiClient.delete(`/data-challenge/${id}`);
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete question');
+    }
+  };
+
   const handleDeleteR5 = async (wordId: string) => {
-    await apiClient.delete(`/decode-words/pool/${selectedEventId}/${wordId}`);
-    loadContent();
+    if (!confirm('Delete this decode word from database?')) return;
+    try {
+      await apiClient.delete(`/decode-words/pool/${selectedEventId}/${wordId}`);
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete word');
+    }
   };
 
   return (
@@ -390,18 +425,27 @@ export const QuestionBank: React.FC = () => {
           <div className="lg:col-span-2 space-y-4">
             <h3 className="text-base font-extrabold text-slate-900">Workflow Challenges ({workflowChallenges.length})</h3>
             {workflowChallenges.map((wf) => (
-              <div key={wf.id} className="card p-4 border-slate-200">
-                <h4 className="font-bold text-slate-900 mb-3">{wf.title}</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {(wf.image_urls as string[]).map((url, idx) => (
-                    <div key={idx} className="relative rounded bg-slate-100 overflow-hidden border border-slate-200 aspect-video">
-                      <img src={resolveImageUrl(url)} alt={`Step ${idx + 1}`} className="w-full h-full object-cover" />
-                      <span className="absolute bottom-1 left-1 bg-slate-900/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded font-mono">
-                        Step {idx + 1}
-                      </span>
-                    </div>
-                  ))}
+              <div key={wf.id} className="card p-4 border-slate-200 flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h4 className="font-bold text-slate-900 mb-3">{wf.title}</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {(wf.image_urls as string[]).map((url, idx) => (
+                      <div key={idx} className="relative rounded bg-slate-100 overflow-hidden border border-slate-200 aspect-video">
+                        <img src={resolveImageUrl(url)} alt={`Step ${idx + 1}`} className="w-full h-full object-cover" />
+                        <span className="absolute bottom-1 left-1 bg-slate-900/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded font-mono">
+                          Step {idx + 1}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+                <button
+                  onClick={() => handleDeleteR2(wf.id)}
+                  className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                  title="Delete challenge from DB"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>
@@ -465,21 +509,30 @@ export const QuestionBank: React.FC = () => {
           <div className="lg:col-span-2 space-y-4">
             <h3 className="text-base font-extrabold text-slate-900">AI vs Real Challenges ({aiChallenges.length})</h3>
             {aiChallenges.map((ch) => (
-              <div key={ch.id} className="card p-4 border-slate-200">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className={`relative rounded overflow-hidden border-2 ${ch.correct_side === 'A' ? 'border-amber-500' : 'border-slate-200'}`}>
-                    <img src={resolveImageUrl(ch.image_a_url)} alt="Image A" className="w-full h-40 object-cover" />
-                    <span className="absolute top-2 left-2 bg-slate-900 text-white font-bold text-xs px-2 py-0.5 rounded">
-                      Option A {ch.correct_side === 'A' && '(AI)'}
-                    </span>
-                  </div>
-                  <div className={`relative rounded overflow-hidden border-2 ${ch.correct_side === 'B' ? 'border-amber-500' : 'border-slate-200'}`}>
-                    <img src={resolveImageUrl(ch.image_b_url)} alt="Image B" className="w-full h-40 object-cover" />
-                    <span className="absolute top-2 left-2 bg-slate-900 text-white font-bold text-xs px-2 py-0.5 rounded">
-                      Option B {ch.correct_side === 'B' && '(AI)'}
-                    </span>
+              <div key={ch.id} className="card p-4 border-slate-200 flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`relative rounded overflow-hidden border-2 ${ch.correct_side === 'A' ? 'border-amber-500' : 'border-slate-200'}`}>
+                      <img src={resolveImageUrl(ch.image_a_url)} alt="Image A" className="w-full h-40 object-cover" />
+                      <span className="absolute top-2 left-2 bg-slate-900 text-white font-bold text-xs px-2 py-0.5 rounded">
+                        Option A {ch.correct_side === 'A' && '(AI)'}
+                      </span>
+                    </div>
+                    <div className={`relative rounded overflow-hidden border-2 ${ch.correct_side === 'B' ? 'border-amber-500' : 'border-slate-200'}`}>
+                      <img src={resolveImageUrl(ch.image_b_url)} alt="Image B" className="w-full h-40 object-cover" />
+                      <span className="absolute top-2 left-2 bg-slate-900 text-white font-bold text-xs px-2 py-0.5 rounded">
+                        Option B {ch.correct_side === 'B' && '(AI)'}
+                      </span>
+                    </div>
                   </div>
                 </div>
+                <button
+                  onClick={() => handleDeleteR3(ch.id)}
+                  className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                  title="Delete AI challenge from DB"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>
@@ -544,22 +597,31 @@ export const QuestionBank: React.FC = () => {
           <div className="lg:col-span-2 space-y-4">
             <h3 className="text-base font-extrabold text-slate-900">Data Questions ({dataQuestions.length})</h3>
             {dataQuestions.map((q, i) => (
-              <div key={q.id} className="card p-4 border-slate-200">
-                <div className="font-bold text-slate-900 text-sm mb-2">{q.question_text}</div>
-                <div className="grid grid-cols-2 gap-2 text-xs font-medium">
-                  {(q.options as string[]).map((opt, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-2 rounded border ${
-                        idx === q.correct_index
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
-                          : 'bg-slate-50 text-slate-700 border-slate-100'
-                      }`}
-                    >
-                      {String.fromCharCode(65 + idx)}. {opt}
-                    </div>
-                  ))}
+              <div key={q.id} className="card p-4 border-slate-200 flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="font-bold text-slate-900 text-sm mb-2">{q.question_text}</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs font-medium">
+                    {(q.options as string[]).map((opt, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded border ${
+                          idx === q.correct_index
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
+                            : 'bg-slate-50 text-slate-700 border-slate-100'
+                        }`}
+                      >
+                        {String.fromCharCode(65 + idx)}. {opt}
+                      </div>
+                    ))}
+                  </div>
                 </div>
+                <button
+                  onClick={() => handleDeleteR4(q.id)}
+                  className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                  title="Delete data question from DB"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>

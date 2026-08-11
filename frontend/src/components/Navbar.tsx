@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { BackButton } from './BackButton';
 import { Trophy, Shield, Users, LogOut, Award, Layers, HelpCircle } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -15,17 +16,20 @@ export const Navbar: React.FC = () => {
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-100 font-black text-xl">
-            ⚡
-          </div>
-          <div>
-            <span className="font-extrabold text-lg text-slate-900 tracking-tight">GAME<span className="text-indigo-600">ARENA</span></span>
-            <span className="hidden sm:inline-block ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-              Live Event
-            </span>
-          </div>
-        </Link>
+        <div className="flex items-center gap-3">
+          <BackButton />
+          <Link to="/" className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-100 font-black text-lg">
+              ⚡
+            </div>
+            <div>
+              <span className="font-extrabold text-base text-slate-900 tracking-tight">GAME<span className="text-indigo-600">ARENA</span></span>
+              <span className="hidden sm:inline-block ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                Live Event
+              </span>
+            </div>
+          </Link>
+        </div>
 
         {user ? (
           <nav className="flex items-center gap-4">
