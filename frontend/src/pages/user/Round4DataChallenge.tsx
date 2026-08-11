@@ -34,7 +34,7 @@ export const Round4DataChallenge: React.FC = () => {
   }, []);
 
   const handleSubmit = async (index: number) => {
-    if (!question || submitting) return;
+    if (!question || submitting || selectedIndex !== null) return;
     setSelectedIndex(index);
     setSubmitting(true);
     setFeedback(null);
@@ -50,19 +50,17 @@ export const Round4DataChallenge: React.FC = () => {
 
       if (res.data.correct) {
         setTriggerConfetti(true);
-        setFeedback({ message: `📊 DATA ANOMALY SPOT ON! +${res.data.points} PTS AWARDED!`, type: 'success' });
-      } else {
-        setFeedback({ message: `❌ Incorrect choice submitted (0 pts). Advancing to Round 5...`, type: 'error' });
       }
 
       if (res.data.decode_hint) {
         setDecodePair(res.data.decode_hint);
         setShowDecode(true);
       } else {
-        setTimeout(() => navigate('/team/round-5'), 2500);
+        navigate('/team/round-5');
       }
     } catch (err: any) {
-      setFeedback({ message: err.response?.data?.error || 'Submission error', type: 'error' });
+      console.error(err);
+      navigate('/team/round-5');
     } finally {
       setSubmitting(false);
     }
@@ -94,19 +92,6 @@ export const Round4DataChallenge: React.FC = () => {
         <Timer isCountUp={true} isActive={!loading && !!question} />
       </div>
 
-      {feedback && (
-        <div
-          className={`mb-6 p-4 rounded-xl font-bold text-sm flex items-center gap-2 ${
-            feedback.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border border-rose-200'
-          }`}
-        >
-          {feedback.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-          {feedback.message}
-        </div>
-      )}
-
       {loading ? (
         <div className="card text-center py-12 text-slate-400">Loading data challenge...</div>
       ) : !question ? (
@@ -121,7 +106,7 @@ export const Round4DataChallenge: React.FC = () => {
             {(question.options as string[]).map((optionText, idx) => (
               <button
                 key={idx}
-                disabled={submitting}
+                disabled={submitting || selectedIndex !== null}
                 onClick={() => handleSubmit(idx)}
                 className={`p-5 rounded-xl border-2 text-left font-bold text-sm transition-all flex items-center justify-between group ${
                   selectedIndex === idx

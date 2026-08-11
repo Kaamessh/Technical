@@ -105,7 +105,7 @@ export const Round1Quiz: React.FC = () => {
   }, [user?.slot_id]);
 
   const handleSubmit = async (index: number) => {
-    if (!queueId || submitting) return;
+    if (!queueId || submitting || selectedIndex !== null) return;
     setSelectedIndex(index);
     setSubmitting(true);
     setFeedback(null);
@@ -116,21 +116,23 @@ export const Round1Quiz: React.FC = () => {
         selected_index: index,
       });
 
-      if (res.data.correct) {
+      if (res.data.correct && res.data.won) {
         setTriggerConfetti(true);
-        setFeedback({ message: `🏆 FIRST CORRECT ANSWER! +${res.data.points} PTS AWARDED!`, type: 'success' });
-      } else {
-        setFeedback({ message: `❌ Incorrect choice submitted (0 pts). Advancing...`, type: 'error' });
       }
 
       if (res.data.decode_hint) {
         setDecodePair(res.data.decode_hint);
         setShowDecode(true);
+      } else if (res.data.waiting_for_next || !res.data.correct) {
+        setWaitingForNext(true);
+        setQuestion(null);
       } else {
-        setTimeout(() => fetchCurrentQuestion(), 1500);
+        fetchCurrentQuestion();
       }
     } catch (err: any) {
-      setFeedback({ message: err.response?.data?.error || 'Submission error', type: 'error' });
+      console.error(err);
+      setWaitingForNext(true);
+      setQuestion(null);
     } finally {
       setSubmitting(false);
     }
@@ -213,7 +215,7 @@ export const Round1Quiz: React.FC = () => {
             {(question.options as string[]).map((optionText, idx) => (
               <button
                 key={idx}
-                disabled={submitting}
+                disabled={submitting || selectedIndex !== null}
                 onClick={() => handleSubmit(idx)}
                 className={`p-5 rounded-xl border-2 text-left font-bold text-sm transition-all flex items-center justify-between group ${
                   selectedIndex === idx
