@@ -101,7 +101,8 @@ export async function getRound1Current(req: AuthenticatedTeamRequest, res: Respo
 
       // If queue exists and all questions are exhausted (won/expired), complete Round 1
       await completeTeamRound(teamId!, slotId, 1, 0, 0, 'auto: round 1 queue exhausted');
-      return res.json({ completed: true, message: 'Round 1 queue exhausted. Moving to Round 2.', decode_hint: null });
+      const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
+      return res.json({ completed: true, message: 'Round 1 queue exhausted. Moving to Round 2.', decode_hint: decodeHint });
     }
 
     // Check if team has already attempted this live question wrongly
@@ -114,6 +115,21 @@ export async function getRound1Current(req: AuthenticatedTeamRequest, res: Respo
       .limit(1);
 
     if (wrongAttempt && wrongAttempt.length > 0) {
+      // Check if any pending questions remain in queue
+      const { data: nextPending } = await supabase
+        .from('slot_question_queue')
+        .select('id')
+        .eq('slot_id', slotId)
+        .eq('status', 'pending')
+        .limit(1);
+
+      if (!nextPending || nextPending.length === 0) {
+        // No more pending questions in slot queue! Round 1 is finished for this team.
+        await completeTeamRound(teamId!, slotId, 1, 0, 0, 'auto: round 1 last question attempted');
+        const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
+        return res.json({ completed: true, message: 'Round 1 completed. Moving to Round 2.', decode_hint: decodeHint });
+      }
+
       return res.json({
         completed: false,
         question: null,
@@ -272,6 +288,29 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
           });
         }
       }
+    }
+
+    // Check if any pending questions remain in queue for this slot
+    const { data: remainingPending } = await supabase
+      .from('slot_question_queue')
+      .select('id')
+      .eq('slot_id', slotId)
+      .eq('status', 'pending')
+      .limit(1);
+
+    const hasNextPending = remainingPending && remainingPending.length > 0;
+
+    if (!hasNextPending && !isCorrect) {
+      // No more questions remain in slot queue! Complete Round 1 for team immediately.
+      await completeTeamRound(teamId!, slotId!, 1, timeTakenSec, 0, 'completed last question in round 1');
+      decodeHint = await getTeamDecodeHintPair(teamId!, 1);
+      return res.json({
+        correct: false,
+        completed: true,
+        points: 0,
+        decode_hint: decodeHint,
+        message: 'Round 1 completed. Moving to Round 2.',
+      });
     }
 
     return res.json({

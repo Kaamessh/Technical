@@ -123,6 +123,8 @@ export const Round1Quiz: React.FC = () => {
       if (res.data.decode_hint) {
         setDecodePair(res.data.decode_hint);
         setShowDecode(true);
+      } else if (res.data.completed) {
+        navigate('/team/round-2');
       } else if (res.data.waiting_for_next || !res.data.correct) {
         setWaitingForNext(true);
         setQuestion(null);
