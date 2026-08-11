@@ -23,6 +23,14 @@
       "dest": "frontend/assets/$1"
     },
     {
+      "src": "/Images/(.*)",
+      "dest": "frontend/Images/$1"
+    },
+    {
+      "src": "/images/(.*)",
+      "dest": "frontend/Images/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "frontend/index.html"
     }
