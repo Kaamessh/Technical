@@ -117,9 +117,6 @@ export const Round5Password: React.FC = () => {
               <div className="text-4xl font-extrabold text-amber-400 tracking-widest my-2">
                 {binaryClue || '1111'}
               </div>
-              <p className="text-[11px] text-slate-500 font-sans">
-                Convert binary base-2 → decimal base-10 (e.g. "1111" = 15).
-              </p>
             </div>
 
             {/* Letter Numbers Hints */}
@@ -148,7 +145,7 @@ export const Round5Password: React.FC = () => {
                   required
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="e.g. 15elephant"
+                  placeholder="Enter decoded password..."
                   className="w-full px-5 py-4 rounded-xl bg-slate-950 border-2 border-emerald-500/50 text-white font-mono text-xl font-bold tracking-wider focus:outline-none focus:border-emerald-400 transition-all placeholder-slate-600"
                 />
               </div>
