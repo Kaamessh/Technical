@@ -23,7 +23,7 @@ export const Navbar: React.FC = () => {
               ⚡
             </div>
             <div>
-              <span className="font-extrabold text-base text-slate-900 tracking-tight">GAME<span className="text-indigo-600">ARENA</span></span>
+              <span className="font-extrabold text-base text-slate-900 tracking-tight">AI <span className="text-indigo-600">SPRINT</span></span>
               <span className="hidden sm:inline-block ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
                 Live Event
               </span>
