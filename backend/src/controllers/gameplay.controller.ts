@@ -401,18 +401,47 @@ export async function submitRound2Workflow(req: AuthenticatedTeamRequest, res: R
 export async function getRound3Challenge(req: AuthenticatedTeamRequest, res: Response) {
   try {
     const eventId = req.team?.event_id;
-    const { data: challenge } = await supabase
+    const teamId = req.team?.id;
+    const r3Limit = getRoundQuestionLimit(3);
+
+    // Fetch team's existing attempts for Round 3
+    const { data: ledgerEntries } = await supabase
+      .from('points_ledger')
+      .select('reason')
+      .eq('team_id', teamId)
+      .eq('round_number', 3);
+
+    const completedChallengeIds = ledgerEntries
+      ? ledgerEntries
+          .map((l) => l.reason?.replace('round3_attempt: ', ''))
+          .filter(Boolean)
+      : [];
+
+    // Check if team has reached question limit for Round 3
+    if (completedChallengeIds.length >= r3Limit) {
+      const decodeHint = await getTeamDecodeHintPair(teamId!, 3);
+      return res.json({ completed: true, message: 'Round 3 completed!', decode_hint: decodeHint });
+    }
+
+    // Fetch all challenges for event
+    const { data: challenges } = await supabase
       .from('ai_or_real_challenges')
       .select('id, image_a_url, image_b_url')
       .eq('event_id', eventId)
-      .limit(1)
-      .single();
+      .order('created_at', { ascending: true });
 
-    if (!challenge) {
+    if (!challenges || challenges.length === 0) {
       return res.status(404).json({ error: 'No AI or Real challenge configured for this event.' });
     }
 
-    return res.json(challenge);
+    // Pick first unattempted challenge
+    const nextChallenge = challenges.find((c) => !completedChallengeIds.includes(c.id)) || challenges[0];
+
+    return res.json({
+      ...nextChallenge,
+      question_number: completedChallengeIds.length + 1,
+      total_questions: Math.min(r3Limit, challenges.length),
+    });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -437,17 +466,55 @@ export async function submitRound3AiOrReal(req: AuthenticatedTeamRequest, res: R
 
     if (!challenge) return res.status(404).json({ error: 'Challenge not found' });
 
-    if (challenge.correct_side !== selected_side) {
-      return res.json({ correct: false, message: 'Incorrect choice! Inspect the image details carefully.' });
+    const isCorrect = challenge.correct_side === selected_side;
+
+    // Record attempt for this challenge
+    await supabase.from('points_ledger').insert({
+      team_id: teamId,
+      round_number: 3,
+      points: isCorrect ? 10 : 0,
+      reason: `round3_attempt: ${challenge_id}`,
+    });
+
+    const r3Limit = getRoundQuestionLimit(3);
+
+    // Fetch count of Round 3 attempts for team
+    const { data: ledgerEntries } = await supabase
+      .from('points_ledger')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('round_number', 3);
+
+    const completedCount = ledgerEntries ? ledgerEntries.length : 1;
+
+    // Fetch total available challenges
+    const { data: allChallenges } = await supabase
+      .from('ai_or_real_challenges')
+      .select('id')
+      .eq('event_id', req.team?.event_id);
+
+    const maxAvailable = allChallenges ? allChallenges.length : 1;
+    const targetLimit = Math.min(r3Limit, maxAvailable);
+
+    if (completedCount >= targetLimit) {
+      // Completed all required Round 3 questions! Complete Round 3 with normalized scoring
+      const result = await completeTeamRound(teamId!, slotId!, 3, time_taken || 10);
+      const decodeHint = await getTeamDecodeHintPair(teamId!, 3);
+
+      return res.json({
+        correct: isCorrect,
+        completed: true,
+        points: result.points,
+        decode_hint: decodeHint,
+        message: isCorrect ? 'Correct choice! Round 3 completed.' : 'Incorrect choice. Round 3 completed.',
+      });
     }
 
-    const result = await completeTeamRound(teamId!, slotId!, 3, time_taken || 10);
-    const decodeHint = await getTeamDecodeHintPair(teamId!, 3);
-
     return res.json({
-      correct: true,
-      points: result.points,
-      decode_hint: decodeHint,
+      correct: isCorrect,
+      completed: false,
+      has_next_question: true,
+      message: isCorrect ? 'Correct choice! Advancing to next AI vs Real question...' : 'Incorrect choice. Advancing to next AI vs Real question...',
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -458,18 +525,43 @@ export async function submitRound3AiOrReal(req: AuthenticatedTeamRequest, res: R
 export async function getRound4Question(req: AuthenticatedTeamRequest, res: Response) {
   try {
     const eventId = req.team?.event_id;
-    const { data: question } = await supabase
+    const teamId = req.team?.id;
+    const r4Limit = getRoundQuestionLimit(4);
+
+    const { data: ledgerEntries } = await supabase
+      .from('points_ledger')
+      .select('reason')
+      .eq('team_id', teamId)
+      .eq('round_number', 4);
+
+    const completedQuestionIds = ledgerEntries
+      ? ledgerEntries
+          .map((l) => l.reason?.replace('round4_attempt: ', ''))
+          .filter(Boolean)
+      : [];
+
+    if (completedQuestionIds.length >= r4Limit) {
+      const decodeHint = await getTeamDecodeHintPair(teamId!, 4);
+      return res.json({ completed: true, message: 'Round 4 completed!', decode_hint: decodeHint });
+    }
+
+    const { data: questions } = await supabase
       .from('data_challenge_questions')
       .select('id, question_text, options')
       .eq('event_id', eventId)
-      .limit(1)
-      .single();
+      .order('created_at', { ascending: true });
 
-    if (!question) {
+    if (!questions || questions.length === 0) {
       return res.status(404).json({ error: 'No Data Challenge question configured for this event.' });
     }
 
-    return res.json(question);
+    const nextQuestion = questions.find((q) => !completedQuestionIds.includes(q.id)) || questions[0];
+
+    return res.json({
+      ...nextQuestion,
+      question_number: completedQuestionIds.length + 1,
+      total_questions: Math.min(r4Limit, questions.length),
+    });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -497,20 +589,49 @@ export async function submitRound4Answer(req: AuthenticatedTeamRequest, res: Res
     const isCorrect = question.correct_index === selected_index;
     const timeTakenSec = time_taken || 10;
 
-    let result;
-    if (isCorrect) {
-      result = await completeTeamRound(teamId!, slotId!, 4, timeTakenSec);
-    } else {
-      result = await completeTeamRound(teamId!, slotId!, 4, timeTakenSec, 0, 'incorrect answer submitted');
-    }
+    await supabase.from('points_ledger').insert({
+      team_id: teamId,
+      round_number: 4,
+      points: isCorrect ? 10 : 0,
+      reason: `round4_attempt: ${question_id}`,
+    });
 
-    const decodeHint = await getTeamDecodeHintPair(teamId!, 4);
+    const r4Limit = getRoundQuestionLimit(4);
+
+    const { data: ledgerEntries } = await supabase
+      .from('points_ledger')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('round_number', 4);
+
+    const completedCount = ledgerEntries ? ledgerEntries.length : 1;
+
+    const { data: allQuestions } = await supabase
+      .from('data_challenge_questions')
+      .select('id')
+      .eq('event_id', req.team?.event_id);
+
+    const maxAvailable = allQuestions ? allQuestions.length : 1;
+    const targetLimit = Math.min(r4Limit, maxAvailable);
+
+    if (completedCount >= targetLimit) {
+      const result = await completeTeamRound(teamId!, slotId!, 4, timeTakenSec, isCorrect ? undefined : 0);
+      const decodeHint = await getTeamDecodeHintPair(teamId!, 4);
+
+      return res.json({
+        correct: isCorrect,
+        completed: true,
+        points: isCorrect ? result.points : 0,
+        decode_hint: decodeHint,
+        message: isCorrect ? 'Correct answer! Round 4 completed.' : 'Incorrect answer. Round 4 completed.',
+      });
+    }
 
     return res.json({
       correct: isCorrect,
-      points: isCorrect ? result.points : 0,
-      decode_hint: decodeHint,
-      message: isCorrect ? 'Correct answer!' : 'Incorrect answer submitted.',
+      completed: false,
+      has_next_question: true,
+      message: isCorrect ? 'Correct answer! Advancing to next data question...' : 'Incorrect choice. Advancing to next data question...',
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

@@ -4,6 +4,8 @@ export interface TaskSettings {
   task3_pmax: number; // Round 3 AI vs Real (Default 100)
   task4_pmax: number; // Round 4 Spot Data (Default 100)
   task5_pmax: number; // Round 5 Password Unlock (Default 0)
+  r3_question_count: number; // Round 3 questions per slot (Default 1)
+  r4_question_count: number; // Round 4 questions per slot (Default 1)
 }
 
 let currentSettings: TaskSettings = {
@@ -12,6 +14,8 @@ let currentSettings: TaskSettings = {
   task3_pmax: 100,
   task4_pmax: 100,
   task5_pmax: 0,
+  r3_question_count: 1,
+  r4_question_count: 1,
 };
 
 export function getTaskSettings(): TaskSettings {
@@ -41,4 +45,11 @@ export function getPMaxForRound(roundNumber: number): number {
     default:
       return 100;
   }
+}
+
+export function getRoundQuestionLimit(roundNumber: number): number {
+  if (roundNumber === 3) return currentSettings.r3_question_count || 1;
+  if (roundNumber === 4) return currentSettings.r4_question_count || 1;
+  if (roundNumber === 2) return 1;
+  return 1;
 }

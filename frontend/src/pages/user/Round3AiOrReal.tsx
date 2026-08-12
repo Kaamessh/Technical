@@ -23,15 +23,29 @@ export const Round3AiOrReal: React.FC = () => {
   const [decodePair, setDecodePair] = useState<number[] | null>(null);
   const [triggerConfetti, setTriggerConfetti] = useState(false);
 
-  useEffect(() => {
+  const fetchChallenge = () => {
+    setLoading(true);
     apiClient
       .get('/gameplay/round3/challenge')
       .then((res) => {
-        setChallenge(res.data);
-        setStartTime(Date.now());
+        if (res.data.completed) {
+          if (res.data.decode_hint) {
+            setDecodePair(res.data.decode_hint);
+            setShowDecode(true);
+          } else {
+            navigate('/team/round-4');
+          }
+        } else {
+          setChallenge(res.data);
+          setStartTime(Date.now());
+        }
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchChallenge();
   }, []);
 
   const handleSubmit = async (side: 'A' | 'B') => {
@@ -49,7 +63,7 @@ export const Round3AiOrReal: React.FC = () => {
         time_taken: timeTaken,
       });
 
-      if (res.data.correct) {
+      if (res.data.completed) {
         setTriggerConfetti(true);
         setFeedback({ message: `✨ SPOT ON! AI IMAGE IDENTIFIED! +${res.data.points} PTS AWARDED!`, type: 'success' });
         if (res.data.decode_hint) {
@@ -58,8 +72,14 @@ export const Round3AiOrReal: React.FC = () => {
         } else {
           setTimeout(() => navigate('/team/round-4'), 2500);
         }
+      } else if (res.data.has_next_question) {
+        setFeedback({ message: res.data.message || 'Choice submitted. Advancing to next challenge...', type: 'success' });
+        setTimeout(() => {
+          setSelectedSide(null);
+          fetchChallenge();
+        }, 1200);
       } else {
-        setFeedback({ message: res.data.message || 'Incorrect choice. Inspect the textures carefully!', type: 'error' });
+        setFeedback({ message: res.data.message || 'Choice submitted!', type: 'error' });
       }
     } catch (err: any) {
       setFeedback({ message: err.response?.data?.error || 'Submission error', type: 'error' });

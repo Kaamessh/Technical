@@ -20,6 +20,8 @@ export const AdminLeaderboard: React.FC = () => {
     task3_pmax: 100,
     task4_pmax: 100,
     task5_pmax: 0,
+    r3_question_count: 1,
+    r4_question_count: 1,
   });
 
   // Audit Attempts Modal State
@@ -351,12 +353,55 @@ export const AdminLeaderboard: React.FC = () => {
                 </div>
               </div>
 
+              <div className="pt-2 border-t border-slate-200">
+                <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2">
+                  Slot Question Count Controls
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Round 3 (AI vs Real) Question Limit
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="20"
+                      value={taskSettings.r3_question_count || 1}
+                      onChange={(e) => setTaskSettings({ ...taskSettings, r3_question_count: Number(e.target.value) })}
+                      className="input-field text-sm font-mono font-bold text-indigo-600"
+                    />
+                    <span className="text-[10px] text-slate-500 font-medium">
+                      Number of AI vs Real challenges members attend per slot.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Round 4 (Spot Data) Question Limit
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="20"
+                      value={taskSettings.r4_question_count || 1}
+                      onChange={(e) => setTaskSettings({ ...taskSettings, r4_question_count: Number(e.target.value) })}
+                      className="input-field text-sm font-mono font-bold text-indigo-600"
+                    />
+                    <span className="text-[10px] text-slate-500 font-medium">
+                      Number of Data Anomaly questions members attend per slot.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-2 flex justify-end gap-2">
                 <button type="button" onClick={() => setShowSettingsModal(false)} className="btn-secondary text-xs">
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary text-xs font-bold">
-                  Save P_max Settings
+                  Save Task & Question Settings
                 </button>
               </div>
             </form>

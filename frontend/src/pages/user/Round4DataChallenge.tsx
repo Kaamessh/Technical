@@ -22,15 +22,29 @@ export const Round4DataChallenge: React.FC = () => {
   const [decodePair, setDecodePair] = useState<number[] | null>(null);
   const [triggerConfetti, setTriggerConfetti] = useState(false);
 
-  useEffect(() => {
+  const fetchQuestion = () => {
+    setLoading(true);
     apiClient
       .get('/gameplay/round4/question')
       .then((res) => {
-        setQuestion(res.data);
-        setStartTime(Date.now());
+        if (res.data.completed) {
+          if (res.data.decode_hint) {
+            setDecodePair(res.data.decode_hint);
+            setShowDecode(true);
+          } else {
+            navigate('/team/round-5');
+          }
+        } else {
+          setQuestion(res.data);
+          setStartTime(Date.now());
+        }
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchQuestion();
   }, []);
 
   const handleSubmit = async (index: number) => {
@@ -52,9 +66,18 @@ export const Round4DataChallenge: React.FC = () => {
         setTriggerConfetti(true);
       }
 
-      if (res.data.decode_hint) {
-        setDecodePair(res.data.decode_hint);
-        setShowDecode(true);
+      if (res.data.completed) {
+        if (res.data.decode_hint) {
+          setDecodePair(res.data.decode_hint);
+          setShowDecode(true);
+        } else {
+          setTimeout(() => navigate('/team/round-5'), 2000);
+        }
+      } else if (res.data.has_next_question) {
+        setTimeout(() => {
+          setSelectedIndex(null);
+          fetchQuestion();
+        }, 1200);
       } else {
         navigate('/team/round-5');
       }
