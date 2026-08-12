@@ -460,30 +460,64 @@ export const QuestionBank: React.FC = () => {
             <form onSubmit={handleAddR3} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Image A URL / Local Path
+                  Image A URL / Local Path / Upload File
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={r3ImageA}
-                  onChange={(e) => setR3ImageA(e.target.value)}
-                  placeholder="e.g. Images/Screenshot... or http://..."
-                  className="input-field text-xs py-2"
-                />
+                <div className="space-y-1.5">
+                  <input
+                    type="text"
+                    required
+                    value={r3ImageA}
+                    onChange={(e) => setR3ImageA(e.target.value)}
+                    placeholder="e.g. Images/1a.webp or http://..."
+                    className="input-field text-xs py-2"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          if (ev.target?.result) setR3ImageA(ev.target.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Image B URL / Local Path
+                  Image B URL / Local Path / Upload File
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={r3ImageB}
-                  onChange={(e) => setR3ImageB(e.target.value)}
-                  placeholder="e.g. Images/Screenshot... or http://..."
-                  className="input-field text-xs py-2"
-                />
+                <div className="space-y-1.5">
+                  <input
+                    type="text"
+                    required
+                    value={r3ImageB}
+                    onChange={(e) => setR3ImageB(e.target.value)}
+                    placeholder="e.g. Images/1b.webp or http://..."
+                    className="input-field text-xs py-2"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          if (ev.target?.result) setR3ImageB(ev.target.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                  />
+                </div>
               </div>
 
               <div>
