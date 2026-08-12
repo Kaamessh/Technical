@@ -31,6 +31,18 @@
       "dest": "frontend/Images/$1"
     },
     {
+      "src": "/favicon.ico",
+      "dest": "frontend/favicon.ico"
+    },
+    {
+      "src": "/favicon.png",
+      "dest": "frontend/favicon.png"
+    },
+    {
+      "src": "/icons8-games-16.png",
+      "dest": "frontend/icons8-games-16.png"
+    },
+    {
       "src": "/(.*)",
       "dest": "frontend/index.html"
     }
