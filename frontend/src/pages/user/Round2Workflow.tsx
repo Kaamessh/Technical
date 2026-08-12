@@ -33,6 +33,10 @@ export const Round2Workflow: React.FC = () => {
     apiClient
       .get('/gameplay/round2/challenge')
       .then((res) => {
+        if (res.data.completed) {
+          navigate('/team/round-3');
+          return;
+        }
         setChallengeId(res.data.id);
         setTitle(res.data.title);
         const rawItems: { url: string }[] = res.data.items || [];

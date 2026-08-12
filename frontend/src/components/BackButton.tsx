@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface BackButtonProps {
   to?: string;
@@ -10,6 +11,12 @@ interface BackButtonProps {
 
 export const BackButton: React.FC<BackButtonProps> = ({ to, label = 'Back', className = '' }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Team members are not permitted to go back to previous rounds or questions
+  if (user?.role === 'team') {
+    return null;
+  }
 
   const handleBack = () => {
     if (to) {

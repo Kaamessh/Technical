@@ -329,6 +329,21 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
 export async function getRound2Challenge(req: AuthenticatedTeamRequest, res: Response) {
   try {
     const eventId = req.team?.event_id;
+    const teamId = req.team?.id;
+
+    // Check if team has already completed Round 2
+    const { data: progress } = await supabase
+      .from('team_round_progress')
+      .select('status')
+      .eq('team_id', teamId)
+      .eq('round_number', 2)
+      .single();
+
+    if (progress && progress.status === 'completed') {
+      const decodeHint = await getTeamDecodeHintPair(teamId!, 2);
+      return res.json({ completed: true, message: 'Round 2 already completed!', decode_hint: decodeHint });
+    }
+
     const { data: challenge } = await supabase
       .from('workflow_challenges')
       .select('*')
