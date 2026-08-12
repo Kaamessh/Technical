@@ -119,17 +119,18 @@ export const Round5Password: React.FC = () => {
               </div>
             </div>
 
-            {/* Letter Numbers Hints */}
-            <div className="bg-slate-950 p-6 rounded-xl border border-slate-800">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-400" /> Letter Position Hints (1..26)
+            {/* Unlock Instructions */}
+            <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 flex flex-col justify-between">
+              <div>
+                <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-2 font-sans">
+                  <Sparkles className="w-4 h-4 text-emerald-400" /> Unlock Instructions
+                </div>
+                <ul className="text-xs text-slate-300 font-sans space-y-1.5 list-disc list-inside">
+                  <li>Convert the <strong>Binary Clue String</strong> into its decimal number.</li>
+                  <li>Combine the decimal number with your decoded <strong>Target Word</strong>.</li>
+                  <li>Type your combined password below and click <strong>Un-Lock Event Finale</strong>.</li>
+                </ul>
               </div>
-              <div className="text-2xl font-extrabold text-emerald-400 tracking-wider my-2">
-                [{letterNumbers.join(', ')}]
-              </div>
-              <p className="text-[11px] text-slate-500 font-sans">
-                Alphabet positions (A=1, B=2... Z=26) representing your target word!
-              </p>
             </div>
           </div>
 
