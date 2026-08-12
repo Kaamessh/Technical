@@ -98,59 +98,105 @@ export const AdminLeaderboard: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <Trophy className="w-8 h-8 text-amber-500" /> Event Standings & Audit
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Live point aggregates, slot rankings, and manual administrative point adjustments.</p>
+          <p className="text-sm text-slate-500 mt-1">Select any individual slot or view global rankings across the event.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           {events.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-500 uppercase">Event:</span>
+              <select
+                value={selectedEventId}
+                onChange={(e) => {
+                  setSelectedEventId(e.target.value);
+                  setSelectedSlotId('global');
+                }}
+                className="input-field text-xs font-semibold py-2 w-44 bg-white"
+              >
+                {events.map((evt) => (
+                  <option key={evt.id} value={evt.id}>
+                    {evt.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Slot Selector Dropdown */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-500 uppercase">Slot:</span>
             <select
-              value={selectedEventId}
-              onChange={(e) => {
-                setSelectedEventId(e.target.value);
-                setSelectedSlotId('global');
-              }}
-              className="input-field text-xs font-semibold py-2 w-48 bg-white"
+              value={selectedSlotId}
+              onChange={(e) => setSelectedSlotId(e.target.value)}
+              className="input-field text-xs font-semibold py-2 w-52 bg-white text-indigo-700 border-indigo-200"
             >
-              {events.map((evt) => (
-                <option key={evt.id} value={evt.id}>
-                  {evt.name}
+              <option value="global">🌐 All Slots (Global Standings)</option>
+              {slots.map((s) => (
+                <option key={s.id} value={s.id}>
+                  📍 Slot #{s.slot_number} ({s.slot_code})
                 </option>
               ))}
             </select>
-          )}
-
-          {/* Toggle Global vs Slot */}
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
-            <button
-              onClick={() => setSelectedSlotId('global')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                selectedSlotId === 'global' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5" /> Global
-            </button>
-
-            {slots.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedSlotId(s.id)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  selectedSlotId === s.id ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Slot #{s.slot_number} ({s.slot_code})
-              </button>
-            ))}
           </div>
 
-          <button onClick={fetchLeaderboard} className="p-2 text-slate-500 hover:text-indigo-600 rounded-lg bg-white border border-slate-200">
+          <button onClick={fetchLeaderboard} className="p-2 text-slate-500 hover:text-indigo-600 rounded-lg bg-white border border-slate-200" title="Refresh Standings">
             <RefreshCw className="w-4 h-4" />
           </button>
+        </div>
+      </div>
+
+      {/* Quick Slot Filter Pills */}
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-bold text-slate-400 uppercase mr-1">Quick Select:</span>
+        <button
+          onClick={() => setSelectedSlotId('global')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all ${
+            selectedSlotId === 'global'
+              ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+              : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+          }`}
+        >
+          <Globe className="w-3.5 h-3.5" /> All Slots (Global)
+        </button>
+
+        {slots.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSelectedSlotId(s.id)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all ${
+              selectedSlotId === s.id
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" /> Slot #{s.slot_number} ({s.slot_code})
+          </button>
+        ))}
+      </div>
+
+      {/* Selected Slot Information Banner */}
+      <div className="mb-6 p-4 rounded-xl bg-slate-900 text-white flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
+            {selectedSlotId === 'global' ? <Globe className="w-5 h-5" /> : <Layers className="w-5 h-5 text-amber-400" />}
+          </div>
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400">ACTIVE LEADERBOARD VIEW</span>
+            <h2 className="text-base font-extrabold text-white">
+              {selectedSlotId === 'global'
+                ? 'Global Event Standings (All Slots)'
+                : `Slot Leaderboard — Slot #${slots.find((s) => s.id === selectedSlotId)?.slot_number || ''} (${slots.find((s) => s.id === selectedSlotId)?.slot_code || ''})`}
+            </h2>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-xs font-mono text-slate-400">Teams in View:</span>
+          <span className="ml-2 font-mono font-bold text-amber-400 text-sm">{standings.length} Teams</span>
         </div>
       </div>
 
