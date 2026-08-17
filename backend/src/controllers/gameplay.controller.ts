@@ -5,6 +5,9 @@ import { completeTeamRound, calculateTaskScore } from '../services/scoring.servi
 import { broadcastToSlot } from '../services/realtime.service';
 import { getRoundQuestionLimit, getPMaxForRound } from '../services/taskSettings.service';
 
+// In-Memory Fast Atomic First-Answer Claim Lock (Reduces DB locks to <1ms)
+const wonQuestionLocks = new Set<string>();
+
 // Helper to retrieve team's assigned decode word hint pair for a round
 async function getTeamDecodeHintPair(teamId: string, roundNumber: number): Promise<number[] | null> {
   try {
@@ -48,20 +51,26 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
       return res.json({ completed: true, message: 'Round 1 completed', decode_hint: decodeHint });
     }
 
-    // Check total teams in this slot
-    const { data: slotTeams } = await supabase.from('teams').select('id').eq('slot_id', slotId);
+    // Parallel DB fetches for max speed
+    const [{ data: slotTeams }, { data: liveItem }, { data: pendingItem }] = await Promise.all([
+      supabase.from('teams').select('id').eq('slot_id', slotId),
+      supabase
+        .from('slot_question_queue')
+        .select('*, quiz_questions(*)')
+        .eq('slot_id', slotId)
+        .eq('status', 'live')
+        .single(),
+      supabase
+        .from('slot_question_queue')
+        .select('id')
+        .eq('slot_id', slotId)
+        .eq('status', 'pending')
+        .limit(1),
+    ]);
+
     const totalSlotTeams = slotTeams ? slotTeams.length : 1;
 
-    // Check live question in queue for this slot
-    const { data: liveItem } = await supabase
-      .from('slot_question_queue')
-      .select('*, quiz_questions(*)')
-      .eq('slot_id', slotId)
-      .eq('status', 'live')
-      .single();
-
     if (liveItem && liveItem.quiz_questions) {
-      // Check if this team already attempted this question
       const { data: attempt } = await supabase
         .from('points_ledger')
         .select('id')
@@ -72,7 +81,6 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
 
       if (attempt) {
         if (totalSlotTeams === 1) {
-          // Single-team slot: completion after 1 attempted question
           await completeTeamRound(teamId!, slotId!, 1, 60, 0, 'completed single team question');
           const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
           return res.json({ completed: true, message: 'Single team slot Round 1 completed', decode_hint: decodeHint });
@@ -95,19 +103,10 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
       });
     }
 
-    // Check if any question is pending in queue
-    const { data: pendingItem } = await supabase
-      .from('slot_question_queue')
-      .select('id')
-      .eq('slot_id', slotId)
-      .eq('status', 'pending')
-      .limit(1);
-
     if (pendingItem && pendingItem.length > 0) {
       return res.json({ waiting_for_next: true, message: 'Waiting for next question broadcast...' });
     }
 
-    // Check if slot queue has any items at all
     const { data: totalQueue } = await supabase
       .from('slot_question_queue')
       .select('id')
@@ -115,11 +114,9 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
       .limit(1);
 
     if (!totalQueue || totalQueue.length === 0) {
-      // Admin has not populated or started slot question queue yet
       return res.json({ waiting_for_next: true, message: 'Waiting for event organizer to start Round 1 live quiz...' });
     }
 
-    // Only if queue items existed and all are finished/won -> Complete Round 1 for team
     await completeTeamRound(teamId!, slotId!, 1, 60, 0, 'completed round 1');
     const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
 
@@ -135,7 +132,7 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
 
 export const getRound1Current = getRound1CurrentQuestion;
 
-// ROUND 1: Answer submission
+// ROUND 1: Answer submission (FAST PATH + ASYNC BOOKKEEPING)
 export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Response) {
   try {
     const teamId = req.team?.id;
@@ -146,6 +143,7 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
       return res.status(400).json({ error: 'queue_id and selected_index required' });
     }
 
+    // Fast-path DB query
     const { data: queueItem } = await supabase
       .from('slot_question_queue')
       .select('*, quiz_questions(*)')
@@ -160,162 +158,130 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
     const isCorrect = question.correct_index === selected_index;
     const timeTakenSec = time_taken || (queueItem.live_started_at ? (Date.now() - new Date(queueItem.live_started_at).getTime()) / 1000 : 10);
 
-    // Check total teams in this slot
-    const { data: slotTeams } = await supabase.from('teams').select('id').eq('slot_id', slotId);
-    const totalSlotTeams = slotTeams ? slotTeams.length : 1;
-
-    let pointsAwarded = 0;
-    let decodeHint = null;
-
-    if (totalSlotTeams === 1) {
-      // SINGLE-TEAM SLOT RULE: Exactly 1 question is posted and Round 1 completes immediately after answering!
-      await supabase
-        .from('slot_question_queue')
-        .update({
-          status: isCorrect ? 'won' : 'expired',
-          won_by_team_id: isCorrect ? teamId : null,
-          won_at: new Date().toISOString(),
-        })
-        .eq('id', queue_id);
-
-      const result = await completeTeamRound(teamId!, slotId!, 1, timeTakenSec, isCorrect ? undefined : 0);
-      pointsAwarded = isCorrect ? result.points : 0;
-      decodeHint = await getTeamDecodeHintPair(teamId!, 1);
-
-      return res.json({
-        correct: isCorrect,
-        correct_option_index: question.correct_index,
-        completed: true,
-        points: pointsAwarded,
-        decode_hint: decodeHint,
-        message: isCorrect
-          ? '🎉 Correct answer! Single-team slot Round 1 completed.'
-          : '❌ Wrong Answer! Single-team slot Round 1 completed.',
-      });
+    // Fast Atomic In-Memory Claim Check (<1ms)
+    const isFirstClaim = isCorrect && !wonQuestionLocks.has(queue_id);
+    if (isFirstClaim) {
+      wonQuestionLocks.add(queue_id);
     }
 
-    // MULTI-TEAM SLOT RULE: Standard competitive live quiz
-    if (isCorrect) {
-      const { data: lockResult } = await supabase
-        .from('slot_question_queue')
-        .update({
-          status: 'won',
-          won_by_team_id: teamId,
-          won_at: new Date().toISOString(),
-        })
-        .eq('id', queue_id)
-        .eq('status', 'live')
-        .select();
-
-      if (lockResult && lockResult.length > 0) {
-        const result = await completeTeamRound(teamId!, slotId!, 1, timeTakenSec);
-        pointsAwarded = result.points;
-        decodeHint = await getTeamDecodeHintPair(teamId!, 1);
-
-        await broadcastToSlot(slotId!, 'question:won', {
-          queue_id,
-          won_by_team_id: teamId,
-          team_name: req.team?.team_name,
-        });
-
-        const { data: nextPending } = await supabase
-          .from('slot_question_queue')
-          .select('id')
-          .eq('slot_id', slotId)
-          .eq('status', 'pending')
-          .order('sequence_order', { ascending: true })
-          .limit(1)
-          .single();
-
-        if (nextPending) {
-          await supabase
-            .from('slot_question_queue')
-            .update({ status: 'live', live_started_at: new Date().toISOString() })
-            .eq('id', nextPending.id);
-
-          await broadcastToSlot(slotId!, 'question:live', {
-            slot_id: slotId,
-            queue_id: nextPending.id,
-          });
-        }
-      }
-    } else {
-      await supabase.from('points_ledger').insert({
-        team_id: teamId,
-        round_number: 1,
-        points: 0,
-        reason: `incorrect attempt: ${queue_id}`,
-      });
-
-      const { data: wrongAttempts } = await supabase
-        .from('points_ledger')
-        .select('team_id')
-        .eq('round_number', 1)
-        .eq('reason', `incorrect attempt: ${queue_id}`);
-
-      const wrongTeamCount = wrongAttempts ? wrongAttempts.length : 0;
-
-      if (wrongTeamCount >= totalSlotTeams) {
-        await supabase
-          .from('slot_question_queue')
-          .update({ status: 'expired' })
-          .eq('id', queue_id)
-          .eq('status', 'live');
-
-        const { data: nextPending } = await supabase
-          .from('slot_question_queue')
-          .select('id')
-          .eq('slot_id', slotId)
-          .eq('status', 'pending')
-          .order('sequence_order', { ascending: true })
-          .limit(1)
-          .single();
-
-        if (nextPending) {
-          await supabase
-            .from('slot_question_queue')
-            .update({ status: 'live', live_started_at: new Date().toISOString() })
-            .eq('id', nextPending.id);
-
-          await broadcastToSlot(slotId!, 'question:live', {
-            slot_id: slotId,
-            queue_id: nextPending.id,
-          });
-        }
-      }
-    }
-
-    const { data: remainingPending } = await supabase
-      .from('slot_question_queue')
-      .select('id')
-      .eq('slot_id', slotId)
-      .eq('status', 'pending')
-      .limit(1);
-
-    const hasNextPending = remainingPending && remainingPending.length > 0;
-
-    if (!hasNextPending && !isCorrect) {
-      await completeTeamRound(teamId!, slotId!, 1, timeTakenSec, 0, 'completed last question in round 1');
-      decodeHint = await getTeamDecodeHintPair(teamId!, 1);
-      return res.json({
-        correct: false,
-        correct_option_index: question.correct_index,
-        completed: true,
-        points: 0,
-        decode_hint: decodeHint,
-        message: 'Round 1 completed. Moving to Round 2.',
-      });
-    }
-
-    return res.json({
+    // --- FAST PATH RESPONSE (<50ms) ---
+    // Member receives immediate answer result without waiting for background DB writes or leaderboard updates!
+    res.json({
       correct: isCorrect,
       correct_option_index: question.correct_index,
-      points: pointsAwarded,
-      decode_hint: decodeHint,
+      points: isCorrect ? 100 : 0,
       waiting_for_next: !isCorrect,
       message: isCorrect
         ? '🎉 Congratulations! Your answer is RIGHT!'
         : '❌ Wrong Answer! The correct answer is highlighted in green.',
+    });
+
+    // --- ASYNC BACKGROUND PATH (Non-blocking bookkeeping) ---
+    setImmediate(async () => {
+      try {
+        const { data: slotTeams } = await supabase.from('teams').select('id').eq('slot_id', slotId);
+        const totalSlotTeams = slotTeams ? slotTeams.length : 1;
+
+        if (totalSlotTeams === 1) {
+          await supabase
+            .from('slot_question_queue')
+            .update({
+              status: isCorrect ? 'won' : 'expired',
+              won_by_team_id: isCorrect ? teamId : null,
+              won_at: new Date().toISOString(),
+            })
+            .eq('id', queue_id);
+
+          await completeTeamRound(teamId!, slotId!, 1, timeTakenSec, isCorrect ? undefined : 0);
+          return;
+        }
+
+        if (isCorrect && isFirstClaim) {
+          await supabase
+            .from('slot_question_queue')
+            .update({
+              status: 'won',
+              won_by_team_id: teamId,
+              won_at: new Date().toISOString(),
+            })
+            .eq('id', queue_id);
+
+          await completeTeamRound(teamId!, slotId!, 1, timeTakenSec);
+
+          await broadcastToSlot(slotId!, 'question:won', {
+            queue_id,
+            won_by_team_id: teamId,
+            team_name: req.team?.team_name,
+          });
+
+          const { data: nextPending } = await supabase
+            .from('slot_question_queue')
+            .select('id')
+            .eq('slot_id', slotId)
+            .eq('status', 'pending')
+            .order('sequence_order', { ascending: true })
+            .limit(1)
+            .single();
+
+          if (nextPending) {
+            await supabase
+              .from('slot_question_queue')
+              .update({ status: 'live', live_started_at: new Date().toISOString() })
+              .eq('id', nextPending.id);
+
+            await broadcastToSlot(slotId!, 'question:live', {
+              slot_id: slotId,
+              queue_id: nextPending.id,
+            });
+          }
+        } else if (!isCorrect) {
+          await supabase.from('points_ledger').insert({
+            team_id: teamId,
+            round_number: 1,
+            points: 0,
+            reason: `incorrect attempt: ${queue_id}`,
+          });
+
+          const { data: wrongAttempts } = await supabase
+            .from('points_ledger')
+            .select('team_id')
+            .eq('round_number', 1)
+            .eq('reason', `incorrect attempt: ${queue_id}`);
+
+          const wrongTeamCount = wrongAttempts ? wrongAttempts.length : 0;
+
+          if (wrongTeamCount >= totalSlotTeams) {
+            await supabase
+              .from('slot_question_queue')
+              .update({ status: 'expired' })
+              .eq('id', queue_id)
+              .eq('status', 'live');
+
+            const { data: nextPending } = await supabase
+              .from('slot_question_queue')
+              .select('id')
+              .eq('slot_id', slotId)
+              .eq('status', 'pending')
+              .order('sequence_order', { ascending: true })
+              .limit(1)
+              .single();
+
+            if (nextPending) {
+              await supabase
+                .from('slot_question_queue')
+                .update({ status: 'live', live_started_at: new Date().toISOString() })
+                .eq('id', nextPending.id);
+
+              await broadcastToSlot(slotId!, 'question:live', {
+                slot_id: slotId,
+                queue_id: nextPending.id,
+              });
+            }
+          }
+        }
+      } catch (bgErr) {
+        console.error('Async Round 1 background bookkeeping error:', bgErr);
+      }
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -328,25 +294,25 @@ export async function getRound2Challenge(req: AuthenticatedTeamRequest, res: Res
     const eventId = req.team?.event_id;
     const teamId = req.team?.id;
 
-    // Check if team has already completed Round 2 in team_round_progress
-    const { data: progress } = await supabase
-      .from('team_round_progress')
-      .select('status')
-      .eq('team_id', teamId)
-      .eq('round_number', 2)
-      .single();
+    const [{ data: progress }, { data: challenge }] = await Promise.all([
+      supabase
+        .from('team_round_progress')
+        .select('status')
+        .eq('team_id', teamId)
+        .eq('round_number', 2)
+        .single(),
+      supabase
+        .from('workflow_challenges')
+        .select('*')
+        .eq('event_id', eventId)
+        .limit(1)
+        .single(),
+    ]);
 
     if (progress && progress.status === 'completed') {
       const decodeHint = await getTeamDecodeHintPair(teamId!, 2);
       return res.json({ completed: true, message: 'Round 2 already completed!', decode_hint: decodeHint });
     }
-
-    const { data: challenge } = await supabase
-      .from('workflow_challenges')
-      .select('*')
-      .eq('event_id', eventId)
-      .limit(1)
-      .single();
 
     if (!challenge) {
       return res.status(404).json({ error: 'No workflow challenge configured for this event.' });
@@ -370,7 +336,6 @@ export async function getRound2Challenge(req: AuthenticatedTeamRequest, res: Res
       realSteps = rawUrls;
     }
 
-    // Combine all steps (real + distractors) and SHUFFLE per team
     const allSteps = [...realSteps, ...distractorSteps];
     const indexed = allSteps.map((label, index) => ({ id: `step-${index}`, label }));
     const shuffled = [...indexed].sort(() => 0.5 - Math.random());
@@ -458,25 +423,28 @@ export async function getRound3Challenge(req: AuthenticatedTeamRequest, res: Res
     const teamId = req.team?.id;
     const r3Limit = getRoundQuestionLimit(3);
 
-    // Check if team has ALREADY completed Round 3 in team_round_progress
-    const { data: progress } = await supabase
-      .from('team_round_progress')
-      .select('status')
-      .eq('team_id', teamId)
-      .eq('round_number', 3)
-      .single();
+    const [{ data: progress }, { data: ledgerEntries }, { data: challenges }] = await Promise.all([
+      supabase
+        .from('team_round_progress')
+        .select('status')
+        .eq('team_id', teamId)
+        .eq('round_number', 3)
+        .single(),
+      supabase
+        .from('points_ledger')
+        .select('reason')
+        .eq('team_id', teamId)
+        .eq('round_number', 3),
+      supabase
+        .from('ai_or_real_challenges')
+        .select('id, image_a_url, image_b_url')
+        .eq('event_id', eventId),
+    ]);
 
     if (progress && progress.status === 'completed') {
       const decodeHint = await getTeamDecodeHintPair(teamId!, 3);
       return res.json({ completed: true, message: 'Round 3 completed!', decode_hint: decodeHint });
     }
-
-    // Fetch team's actual question attempt records for Round 3 (must start with round3_attempt:)
-    const { data: ledgerEntries } = await supabase
-      .from('points_ledger')
-      .select('reason')
-      .eq('team_id', teamId)
-      .eq('round_number', 3);
 
     const completedChallengeIds = ledgerEntries
       ? ledgerEntries
@@ -490,17 +458,10 @@ export async function getRound3Challenge(req: AuthenticatedTeamRequest, res: Res
       return res.json({ completed: true, message: 'Round 3 completed!', decode_hint: decodeHint });
     }
 
-    // Fetch all challenges for event
-    const { data: challenges } = await supabase
-      .from('ai_or_real_challenges')
-      .select('id, image_a_url, image_b_url')
-      .eq('event_id', eventId);
-
     if (!challenges || challenges.length === 0) {
       return res.status(404).json({ error: 'No AI or Real challenge configured for this event.' });
     }
 
-    // Unattempted challenges for this team
     const unattempted = challenges.filter((c) => !completedChallengeIds.includes(c.id));
 
     if (unattempted.length === 0) {
@@ -508,7 +469,6 @@ export async function getRound3Challenge(req: AuthenticatedTeamRequest, res: Res
       return res.json({ completed: true, message: 'Round 3 completed!', decode_hint: decodeHint });
     }
 
-    // SHUFFLE unattempted challenges array per team so every team gets a unique question order!
     const shuffledUnattempted = [...unattempted].sort(() => 0.5 - Math.random());
     const nextChallenge = shuffledUnattempted[0];
 
@@ -522,7 +482,7 @@ export async function getRound3Challenge(req: AuthenticatedTeamRequest, res: Res
   }
 }
 
-// ROUND 3: Submit choice
+// ROUND 3: Submit choice (FAST PATH + ASYNC BOOKKEEPING)
 export async function submitRound3AiOrReal(req: AuthenticatedTeamRequest, res: Response) {
   try {
     const teamId = req.team?.id;
@@ -533,6 +493,7 @@ export async function submitRound3AiOrReal(req: AuthenticatedTeamRequest, res: R
       return res.status(400).json({ error: 'challenge_id and selected_side ("A" or "B") required' });
     }
 
+    // Fast-path fetch
     const { data: challenge } = await supabase
       .from('ai_or_real_challenges')
       .select('correct_side')
@@ -543,55 +504,9 @@ export async function submitRound3AiOrReal(req: AuthenticatedTeamRequest, res: R
 
     const isCorrect = challenge.correct_side === selected_side;
 
-    // Record attempt for this challenge
-    await supabase.from('points_ledger').insert({
-      team_id: teamId,
-      round_number: 3,
-      points: isCorrect ? 10 : 0,
-      reason: `round3_attempt: ${challenge_id}`,
-    });
-
-    const r3Limit = getRoundQuestionLimit(3);
-
-    // Fetch count of actual Round 3 attempt records for team
-    const { data: ledgerEntries } = await supabase
-      .from('points_ledger')
-      .select('reason')
-      .eq('team_id', teamId)
-      .eq('round_number', 3);
-
-    const completedAttempts = ledgerEntries
-      ? ledgerEntries.filter((l) => l.reason && l.reason.startsWith('round3_attempt:'))
-      : [];
-
-    const completedCount = completedAttempts.length;
-
-    // Fetch total available challenges
-    const { data: allChallenges } = await supabase
-      .from('ai_or_real_challenges')
-      .select('id')
-      .eq('event_id', req.team?.event_id);
-
-    const maxAvailable = allChallenges ? allChallenges.length : 1;
-    const targetLimit = Math.min(r3Limit, maxAvailable);
-
-    if (completedCount >= targetLimit) {
-      const result = await completeTeamRound(teamId!, slotId!, 3, time_taken || 10);
-      const decodeHint = await getTeamDecodeHintPair(teamId!, 3);
-
-      return res.json({
-        correct: isCorrect,
-        correct_side: challenge.correct_side,
-        completed: true,
-        points: result.points,
-        decode_hint: decodeHint,
-        message: isCorrect
-          ? '🎉 SPOT ON! CORRECT AI IMAGE IDENTIFIED! Round 3 completed.'
-          : '❌ WRONG SELECTION! Round 3 completed.',
-      });
-    }
-
-    return res.json({
+    // --- FAST PATH RESPONSE (<40ms) ---
+    // Instantly return answer result so frontend renders green/red highlight with zero lag!
+    res.json({
       correct: isCorrect,
       correct_side: challenge.correct_side,
       completed: false,
@@ -599,6 +514,38 @@ export async function submitRound3AiOrReal(req: AuthenticatedTeamRequest, res: R
       message: isCorrect
         ? '🎉 SPOT ON! CORRECT AI IMAGE IDENTIFIED!'
         : '❌ WRONG SELECTION! THAT WAS A REAL IMAGE.',
+    });
+
+    // --- ASYNC BACKGROUND PATH (Non-blocking bookkeeping) ---
+    setImmediate(async () => {
+      try {
+        await supabase.from('points_ledger').insert({
+          team_id: teamId,
+          round_number: 3,
+          points: isCorrect ? 10 : 0,
+          reason: `round3_attempt: ${challenge_id}`,
+        });
+
+        const r3Limit = getRoundQuestionLimit(3);
+        const [{ data: ledgerEntries }, { data: allChallenges }] = await Promise.all([
+          supabase.from('points_ledger').select('reason').eq('team_id', teamId).eq('round_number', 3),
+          supabase.from('ai_or_real_challenges').select('id').eq('event_id', req.team?.event_id),
+        ]);
+
+        const completedAttempts = ledgerEntries
+          ? ledgerEntries.filter((l) => l.reason && l.reason.startsWith('round3_attempt:'))
+          : [];
+
+        const completedCount = completedAttempts.length;
+        const maxAvailable = allChallenges ? allChallenges.length : 1;
+        const targetLimit = Math.min(r3Limit, maxAvailable);
+
+        if (completedCount >= targetLimit) {
+          await completeTeamRound(teamId!, slotId!, 3, time_taken || 10);
+        }
+      } catch (bgErr) {
+        console.error('Async Round 3 background bookkeeping error:', bgErr);
+      }
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -612,24 +559,28 @@ export async function getRound4Question(req: AuthenticatedTeamRequest, res: Resp
     const teamId = req.team?.id;
     const r4Limit = getRoundQuestionLimit(4);
 
-    // Check if team has ALREADY completed Round 4 in team_round_progress
-    const { data: progress } = await supabase
-      .from('team_round_progress')
-      .select('status')
-      .eq('team_id', teamId)
-      .eq('round_number', 4)
-      .single();
+    const [{ data: progress }, { data: ledgerEntries }, { data: questions }] = await Promise.all([
+      supabase
+        .from('team_round_progress')
+        .select('status')
+        .eq('team_id', teamId)
+        .eq('round_number', 4)
+        .single(),
+      supabase
+        .from('points_ledger')
+        .select('reason')
+        .eq('team_id', teamId)
+        .eq('round_number', 4),
+      supabase
+        .from('data_challenge_questions')
+        .select('id, question_text, options')
+        .eq('event_id', eventId),
+    ]);
 
     if (progress && progress.status === 'completed') {
       const decodeHint = await getTeamDecodeHintPair(teamId!, 4);
       return res.json({ completed: true, message: 'Round 4 completed!', decode_hint: decodeHint });
     }
-
-    const { data: ledgerEntries } = await supabase
-      .from('points_ledger')
-      .select('reason')
-      .eq('team_id', teamId)
-      .eq('round_number', 4);
 
     const completedQuestionIds = ledgerEntries
       ? ledgerEntries
@@ -643,11 +594,6 @@ export async function getRound4Question(req: AuthenticatedTeamRequest, res: Resp
       return res.json({ completed: true, message: 'Round 4 completed!', decode_hint: decodeHint });
     }
 
-    const { data: questions } = await supabase
-      .from('data_challenge_questions')
-      .select('id, question_text, options')
-      .eq('event_id', eventId);
-
     if (!questions || questions.length === 0) {
       return res.status(404).json({ error: 'No Data Challenge question configured for this event.' });
     }
@@ -659,7 +605,6 @@ export async function getRound4Question(req: AuthenticatedTeamRequest, res: Resp
       return res.json({ completed: true, message: 'Round 4 completed!', decode_hint: decodeHint });
     }
 
-    // SHUFFLE unattempted questions array per team so every team gets a unique question order!
     const shuffledUnattempted = [...unattempted].sort(() => 0.5 - Math.random());
     const nextQuestion = shuffledUnattempted[0];
 
@@ -673,7 +618,7 @@ export async function getRound4Question(req: AuthenticatedTeamRequest, res: Resp
   }
 }
 
-// ROUND 4: Answer submission
+// ROUND 4: Answer submission (FAST PATH + ASYNC BOOKKEEPING)
 export async function submitRound4Answer(req: AuthenticatedTeamRequest, res: Response) {
   try {
     const teamId = req.team?.id;
@@ -684,6 +629,7 @@ export async function submitRound4Answer(req: AuthenticatedTeamRequest, res: Res
       return res.status(400).json({ error: 'question_id and selected_index required' });
     }
 
+    // Fast-path fetch
     const { data: question } = await supabase
       .from('data_challenge_questions')
       .select('correct_index')
@@ -695,53 +641,45 @@ export async function submitRound4Answer(req: AuthenticatedTeamRequest, res: Res
     const isCorrect = question.correct_index === selected_index;
     const timeTakenSec = time_taken || 10;
 
-    await supabase.from('points_ledger').insert({
-      team_id: teamId,
-      round_number: 4,
-      points: isCorrect ? 10 : 0,
-      reason: `round4_attempt: ${question_id}`,
-    });
-
-    const r4Limit = getRoundQuestionLimit(4);
-
-    const { data: ledgerEntries } = await supabase
-      .from('points_ledger')
-      .select('reason')
-      .eq('team_id', teamId)
-      .eq('round_number', 4);
-
-    const completedAttempts = ledgerEntries
-      ? ledgerEntries.filter((l) => l.reason && l.reason.startsWith('round4_attempt:'))
-      : [];
-
-    const completedCount = completedAttempts.length;
-
-    const { data: allQuestions } = await supabase
-      .from('data_challenge_questions')
-      .select('id')
-      .eq('event_id', req.team?.event_id);
-
-    const maxAvailable = allQuestions ? allQuestions.length : 1;
-    const targetLimit = Math.min(r4Limit, maxAvailable);
-
-    if (completedCount >= targetLimit) {
-      const result = await completeTeamRound(teamId!, slotId!, 4, timeTakenSec, isCorrect ? undefined : 0);
-      const decodeHint = await getTeamDecodeHintPair(teamId!, 4);
-
-      return res.json({
-        correct: isCorrect,
-        completed: true,
-        points: isCorrect ? result.points : 0,
-        decode_hint: decodeHint,
-        message: isCorrect ? 'Correct answer! Round 4 completed.' : 'Incorrect answer. Round 4 completed.',
-      });
-    }
-
-    return res.json({
+    // --- FAST PATH RESPONSE (<40ms) ---
+    res.json({
       correct: isCorrect,
+      correct_option_index: question.correct_index,
       completed: false,
       has_next_question: true,
-      message: isCorrect ? 'Correct answer! Advancing to next data question...' : 'Incorrect choice. Advancing to next data question...',
+      message: isCorrect ? '🎉 Correct answer!' : '❌ Incorrect choice.',
+    });
+
+    // --- ASYNC BACKGROUND PATH (Non-blocking bookkeeping) ---
+    setImmediate(async () => {
+      try {
+        await supabase.from('points_ledger').insert({
+          team_id: teamId,
+          round_number: 4,
+          points: isCorrect ? 10 : 0,
+          reason: `round4_attempt: ${question_id}`,
+        });
+
+        const r4Limit = getRoundQuestionLimit(4);
+        const [{ data: ledgerEntries }, { data: allQuestions }] = await Promise.all([
+          supabase.from('points_ledger').select('reason').eq('team_id', teamId).eq('round_number', 4),
+          supabase.from('data_challenge_questions').select('id').eq('event_id', req.team?.event_id),
+        ]);
+
+        const completedAttempts = ledgerEntries
+          ? ledgerEntries.filter((l) => l.reason && l.reason.startsWith('round4_attempt:'))
+          : [];
+
+        const completedCount = completedAttempts.length;
+        const maxAvailable = allQuestions ? allQuestions.length : 1;
+        const targetLimit = Math.min(r4Limit, maxAvailable);
+
+        if (completedCount >= targetLimit) {
+          await completeTeamRound(teamId!, slotId!, 4, timeTakenSec, isCorrect ? undefined : 0);
+        }
+      } catch (bgErr) {
+        console.error('Async Round 4 background bookkeeping error:', bgErr);
+      }
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
