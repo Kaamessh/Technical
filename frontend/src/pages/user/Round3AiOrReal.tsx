@@ -40,7 +40,10 @@ export const Round3AiOrReal: React.FC = () => {
           setStartTime(Date.now());
         }
       })
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        console.error(err);
+        navigate('/team/round-4');
+      })
       .finally(() => setLoading(false));
   };
 

@@ -55,7 +55,10 @@ export const Round2Workflow: React.FC = () => {
         setAllItems(items);
         setPlacedSlots(new Array(numSlots).fill(null));
       })
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        console.error(err);
+        navigate('/team/round-3');
+      })
       .finally(() => setLoading(false));
   };
 

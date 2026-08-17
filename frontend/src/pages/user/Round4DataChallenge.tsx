@@ -39,7 +39,10 @@ export const Round4DataChallenge: React.FC = () => {
           setStartTime(Date.now());
         }
       })
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        console.error(err);
+        navigate('/team/round-5');
+      })
       .finally(() => setLoading(false));
   };
 
