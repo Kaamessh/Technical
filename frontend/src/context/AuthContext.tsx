@@ -25,8 +25,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('auth_token'));
   const [user, setUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('auth_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('auth_user');
+      if (saved && saved !== 'undefined') {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Error parsing auth_user:', e);
+      localStorage.removeItem('auth_user');
+    }
+    return null;
   });
 
   const loginAdmin = (newToken: string, admin: any) => {

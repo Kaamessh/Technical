@@ -35,11 +35,23 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear storage and redirect to login if not already there
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/admin/login';
+      const currentPath = window.location.pathname;
+      const isLoginOrRegister = currentPath.includes('/login') || currentPath.includes('/register');
+
+      if (!isLoginOrRegister) {
+        let isTeam = false;
+        try {
+          const savedUser = localStorage.getItem('auth_user');
+          if (savedUser) {
+            const u = JSON.parse(savedUser);
+            if (u && u.role === 'team') isTeam = true;
+          }
+        } catch (e) {}
+
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+
+        window.location.href = isTeam ? '/team/login' : '/admin/login';
       }
     }
     return Promise.reject(error);
