@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 
 import authRoutes from './routes/auth.routes';
 import eventsRoutes from './routes/events.routes';
@@ -30,9 +31,14 @@ app.use(
 );
 app.use(express.json());
 
-import path from 'path';
-app.use('/Images', express.static(path.join(__dirname, '../../Images')));
-app.use('/images', express.static(path.join(__dirname, '../../Images')));
+// Safely mount static image directory within process.cwd() for Vercel Serverless Function compatibility
+try {
+  const imagesDir = path.join(process.cwd(), 'frontend/public/Images');
+  app.use('/Images', express.static(imagesDir));
+  app.use('/images', express.static(imagesDir));
+} catch (e) {
+  console.warn('Static image path warning:', e);
+}
 
 // Health Check
 app.get('/api/health', (req, res) => {
