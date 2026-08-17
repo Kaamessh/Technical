@@ -359,16 +359,31 @@ export async function getRound2Challenge(req: AuthenticatedTeamRequest, res: Res
       return res.status(404).json({ error: 'No workflow challenge configured for this event.' });
     }
 
-    // Return title and shuffled image URLs along with challenge ID
-    const originalUrls = challenge.image_urls as string[];
-    const indexed = originalUrls.map((url, index) => ({ url, originalIndex: index }));
+    const rawUrls = (challenge.image_urls as string[]) || [];
+    const distractorIdx = rawUrls.indexOf('__DISTRACTOR__');
+
+    let realSteps: string[] = [];
+    let distractorSteps: string[] = [];
+
+    if (distractorIdx !== -1) {
+      realSteps = rawUrls.slice(0, distractorIdx);
+      distractorSteps = rawUrls.slice(distractorIdx + 1);
+    } else {
+      realSteps = rawUrls;
+    }
+
+    // Combine all steps (real + distractors) for shuffling
+    const allSteps = [...realSteps, ...distractorSteps];
+    const indexed = allSteps.map((label, index) => ({ id: `step-${index}`, label }));
     const shuffled = [...indexed].sort(() => 0.5 - Math.random());
 
     return res.json({
       id: challenge.id,
       title: challenge.title,
+      total_slots: realSteps.length,
+      real_count: realSteps.length,
+      distractor_count: distractorSteps.length,
       items: shuffled,
-      total_count: originalUrls.length,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -380,10 +395,12 @@ export async function submitRound2Workflow(req: AuthenticatedTeamRequest, res: R
   try {
     const teamId = req.team?.id;
     const slotId = req.team?.slot_id;
-    const { challenge_id, submitted_urls, time_taken } = req.body;
+    const { challenge_id, submitted_labels, submitted_urls, time_taken } = req.body;
 
-    if (!challenge_id || !Array.isArray(submitted_urls)) {
-      return res.status(400).json({ error: 'challenge_id and submitted_urls array required' });
+    const labelsToTest = submitted_labels || submitted_urls;
+
+    if (!challenge_id || !Array.isArray(labelsToTest)) {
+      return res.status(400).json({ error: 'challenge_id and submitted_labels array required' });
     }
 
     const { data: challenge } = await supabase
@@ -394,12 +411,19 @@ export async function submitRound2Workflow(req: AuthenticatedTeamRequest, res: R
 
     if (!challenge) return res.status(404).json({ error: 'Challenge not found' });
 
-    const correctOrder = challenge.image_urls as string[];
-    const isCorrect = correctOrder.length === submitted_urls.length &&
-      correctOrder.every((url, idx) => url === submitted_urls[idx]);
+    const rawUrls = (challenge.image_urls as string[]) || [];
+    const distractorIdx = rawUrls.indexOf('__DISTRACTOR__');
+    const realSteps = distractorIdx !== -1 ? rawUrls.slice(0, distractorIdx) : rawUrls;
+
+    const isCorrect =
+      realSteps.length === labelsToTest.length &&
+      realSteps.every((stepLabel, idx) => stepLabel === labelsToTest[idx]);
 
     if (!isCorrect) {
-      return res.json({ correct: false, message: 'Incorrect workflow order. Rearrange the pieces and try again!' });
+      return res.json({
+        correct: false,
+        message: 'Oops! Try Again! Check your step sequence or remove irrelevant steps.',
+      });
     }
 
     // Complete Round 2
@@ -410,6 +434,7 @@ export async function submitRound2Workflow(req: AuthenticatedTeamRequest, res: R
       correct: true,
       points: result.points,
       decode_hint: decodeHint,
+      message: 'Great Job! Keep Going!',
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

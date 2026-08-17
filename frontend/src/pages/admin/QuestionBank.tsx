@@ -18,10 +18,22 @@ export const QuestionBank: React.FC = () => {
   const [r1Options, setR1Options] = useState(['', '', '', '']);
   const [r1CorrectIndex, setR1CorrectIndex] = useState(0);
 
-  // Round 2 States
+  // Round 2 States (Text + Emoji Workflow & Distractors)
   const [workflowChallenges, setWorkflowChallenges] = useState<any[]>([]);
-  const [r2Title, setR2Title] = useState('');
-  const [r2Urls, setR2Urls] = useState(['', '', '', '']);
+  const [r2Title, setR2Title] = useState('Find the data life cycle workflow');
+  const [r2RealSteps, setR2RealSteps] = useState([
+    '📸 Capture',
+    '💾 Store',
+    '⚙️ Process',
+    '📊 Use',
+    '📦 Archive',
+    '🗑️ Destroy',
+  ]);
+  const [r2Distractors, setR2Distractors] = useState([
+    '🖨️ Printing on paper',
+    '🎤 Singing a song',
+    '🎨 Painting a wall',
+  ]);
 
   // Round 3 States
   const [aiChallenges, setAiChallenges] = useState<any[]>([]);
@@ -99,15 +111,25 @@ export const QuestionBank: React.FC = () => {
   // Round 2 Handlers
   const handleAddR2 = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanUrls = r2Urls.filter((u) => u.trim().length > 0);
+    const cleanReal = r2RealSteps.filter((s) => s.trim().length > 0);
+    const cleanDist = r2Distractors.filter((s) => s.trim().length > 0);
+
+    if (cleanReal.length === 0) {
+      alert('Please add at least 1 real workflow step in the correct order.');
+      return;
+    }
+
+    const payloadSteps = [...cleanReal, '__DISTRACTOR__', ...cleanDist];
+
     try {
       await apiClient.post('/workflow-challenges', {
         event_id: selectedEventId,
         title: r2Title,
-        image_urls: cleanUrls,
+        image_urls: payloadSteps,
       });
-      setR2Title('');
-      setR2Urls(['', '', '', '']);
+      setR2Title('Find the data life cycle workflow');
+      setR2RealSteps(['📸 Capture', '💾 Store', '⚙️ Process', '📊 Use', '📦 Archive', '🗑️ Destroy']);
+      setR2Distractors(['🖨️ Printing on paper', '🎤 Singing a song', '🎨 Painting a wall']);
       loadContent();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to add workflow challenge');
@@ -358,54 +380,59 @@ export const QuestionBank: React.FC = () => {
       {activeTab === 2 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="card h-fit">
-            <h3 className="text-base font-extrabold text-slate-900 mb-4">Add Workflow Sequence</h3>
-            <form onSubmit={handleAddR2} className="space-y-4">
+            <h3 className="text-base font-extrabold text-slate-900 mb-4">Add Workflow Sequence Puzzle</h3>
+            <form onSubmit={handleAddR2} className="space-y-5">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Challenge Title
+                  Question / Challenge Title
                 </label>
                 <input
                   type="text"
                   required
                   value={r2Title}
                   onChange={(e) => setR2Title(e.target.value)}
-                  placeholder="e.g. CI/CD Pipeline Order"
+                  placeholder="e.g. Find the data life cycle workflow"
                   className="input-field text-sm"
                 />
               </div>
 
+              {/* REAL STEPS (IN EXACT ORDER) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Image URLs / Paths ({r2Urls.length} steps)
+                  <label className="block text-xs font-extrabold uppercase tracking-wider text-emerald-700">
+                    Real Flow Steps ({r2RealSteps.length} Steps in Order)
                   </label>
                   <button
                     type="button"
-                    onClick={() => setR2Urls([...r2Urls, ''])}
-                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100"
+                    onClick={() => setR2RealSteps([...r2RealSteps, ''])}
+                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"
                   >
-                    <Plus className="w-3 h-3" /> Add Image Step
+                    <Plus className="w-3 h-3" /> Add Step
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-500">Paste web URLs or local paths (e.g. "Images/Screenshot 2026-08-10 153031.png")</p>
-                {r2Urls.map((url, idx) => (
+                <p className="text-[10px] text-slate-500">
+                  Enter the real steps with emojis in the exact flow order members must arrange.
+                </p>
+
+                {r2RealSteps.map((step, idx) => (
                   <div key={idx} className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-slate-400 w-12 text-right">#{idx + 1}</span>
                     <input
                       type="text"
                       required
-                      value={url}
+                      value={step}
                       onChange={(e) => {
-                        const copy = [...r2Urls];
+                        const copy = [...r2RealSteps];
                         copy[idx] = e.target.value;
-                        setR2Urls(copy);
+                        setR2RealSteps(copy);
                       }}
-                      placeholder={`Step ${idx + 1} Image Path or URL`}
-                      className="input-field text-xs py-2 flex-1"
+                      placeholder={`e.g. 📸 Step ${idx + 1}`}
+                      className="input-field text-xs py-2 flex-1 border-emerald-200 bg-emerald-50/20 font-semibold"
                     />
-                    {r2Urls.length > 2 && (
+                    {r2RealSteps.length > 2 && (
                       <button
                         type="button"
-                        onClick={() => setR2Urls(r2Urls.filter((_, i) => i !== idx))}
+                        onClick={() => setR2RealSteps(r2RealSteps.filter((_, i) => i !== idx))}
                         className="p-1.5 text-slate-400 hover:text-rose-600 rounded"
                         title="Remove step"
                       >
@@ -416,38 +443,116 @@ export const QuestionBank: React.FC = () => {
                 ))}
               </div>
 
-              <button type="submit" className="btn-primary w-full text-xs py-2.5 font-bold">
-                Save Workflow Challenge ({r2Urls.length} Steps)
+              {/* IRRELEVANT / DISTRACTOR STEPS */}
+              <div className="space-y-2 pt-2 border-t border-slate-200">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-extrabold uppercase tracking-wider text-rose-700">
+                    Irrelevant / Distractor Steps ({r2Distractors.length} Extras)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setR2Distractors([...r2Distractors, ''])}
+                    className="text-[11px] font-bold text-rose-700 hover:text-rose-800 flex items-center gap-1 bg-rose-50 px-2 py-0.5 rounded border border-rose-200"
+                  >
+                    <Plus className="w-3 h-3" /> Add Distractor
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Extra wrong steps with emojis that will be scattered to distract members.
+                </p>
+
+                {r2Distractors.map((dis, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-rose-400 w-12 text-right">Ext</span>
+                    <input
+                      type="text"
+                      value={dis}
+                      onChange={(e) => {
+                        const copy = [...r2Distractors];
+                        copy[idx] = e.target.value;
+                        setR2Distractors(copy);
+                      }}
+                      placeholder={`e.g. 🎨 Wrong step ${idx + 1}`}
+                      className="input-field text-xs py-2 flex-1 border-rose-200 bg-rose-50/20 font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setR2Distractors(r2Distractors.filter((_, i) => i !== idx))}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded"
+                      title="Remove distractor"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button type="submit" className="btn-primary w-full text-xs py-3 font-extrabold">
+                Save Workflow ({r2RealSteps.length} Real + {r2Distractors.length} Distractors = {r2RealSteps.length + r2Distractors.length} Total Cards)
               </button>
             </form>
           </div>
 
+          {/* WORKFLOW CHALLENGES LISTING */}
           <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-base font-extrabold text-slate-900">Workflow Challenges ({workflowChallenges.length})</h3>
-            {workflowChallenges.map((wf) => (
-              <div key={wf.id} className="card p-4 border-slate-200 flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <h4 className="font-bold text-slate-900 mb-3">{wf.title}</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {(wf.image_urls as string[]).map((url, idx) => (
-                      <div key={idx} className="relative rounded bg-slate-100 overflow-hidden border border-slate-200 aspect-video">
-                        <img src={resolveImageUrl(url)} alt={`Step ${idx + 1}`} className="w-full h-full object-cover" />
-                        <span className="absolute bottom-1 left-1 bg-slate-900/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded font-mono">
-                          Step {idx + 1}
-                        </span>
+            <h3 className="text-base font-extrabold text-slate-900">Configured Workflows ({workflowChallenges.length})</h3>
+            {workflowChallenges.map((wf) => {
+              const rawUrls = (wf.image_urls as string[]) || [];
+              const distIdx = rawUrls.indexOf('__DISTRACTOR__');
+              const realList = distIdx !== -1 ? rawUrls.slice(0, distIdx) : rawUrls;
+              const distList = distIdx !== -1 ? rawUrls.slice(distIdx + 1) : [];
+
+              return (
+                <div key={wf.id} className="card p-5 border-slate-200 flex items-start justify-between gap-4 shadow-sm">
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                        Question / Puzzle Prompt
+                      </span>
+                      <h4 className="font-extrabold text-base text-slate-900 mt-1">{wf.title}</h4>
+                    </div>
+
+                    {/* Real Flow Steps */}
+                    <div>
+                      <span className="text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider block mb-1.5">
+                        ✔ Real Flow Order ({realList.length} Steps):
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {realList.map((step, idx) => (
+                          <span key={idx} className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs">
+                            <span className="text-[10px] text-emerald-600 font-mono">#{idx + 1}</span> {step}
+                          </span>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Distractor Steps */}
+                    {distList.length > 0 && (
+                      <div>
+                        <span className="text-[11px] font-extrabold text-rose-700 uppercase tracking-wider block mb-1.5">
+                          ❌ Distractor Steps ({distList.length} Extras):
+                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {distList.map((dis, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg bg-rose-50 text-rose-900 border border-rose-200 shadow-2xs">
+                              {dis}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
+
+                  <button
+                    onClick={() => handleDeleteR2(wf.id)}
+                    className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                    title="Delete workflow challenge from DB"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleDeleteR2(wf.id)}
-                  className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
-                  title="Delete challenge from DB"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
