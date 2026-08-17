@@ -95,7 +95,7 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
       });
     }
 
-    // Check if any question is pending
+    // Check if any question is pending in queue
     const { data: pendingItem } = await supabase
       .from('slot_question_queue')
       .select('id')
@@ -103,11 +103,23 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
       .eq('status', 'pending')
       .limit(1);
 
-    if (pendingItem && pendingItem.length > 0 && totalSlotTeams > 1) {
+    if (pendingItem && pendingItem.length > 0) {
       return res.json({ waiting_for_next: true, message: 'Waiting for next question broadcast...' });
     }
 
-    // No live questions or single-team slot -> Complete Round 1 for team
+    // Check if slot queue has any items at all
+    const { data: totalQueue } = await supabase
+      .from('slot_question_queue')
+      .select('id')
+      .eq('slot_id', slotId)
+      .limit(1);
+
+    if (!totalQueue || totalQueue.length === 0) {
+      // Admin has not populated or started slot question queue yet
+      return res.json({ waiting_for_next: true, message: 'Waiting for event organizer to start Round 1 live quiz...' });
+    }
+
+    // Only if queue items existed and all are finished/won -> Complete Round 1 for team
     await completeTeamRound(teamId!, slotId!, 1, 60, 0, 'completed round 1');
     const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
 
@@ -569,18 +581,24 @@ export async function submitRound3AiOrReal(req: AuthenticatedTeamRequest, res: R
 
       return res.json({
         correct: isCorrect,
+        correct_side: challenge.correct_side,
         completed: true,
         points: result.points,
         decode_hint: decodeHint,
-        message: isCorrect ? 'Correct choice! Round 3 completed.' : 'Incorrect choice. Round 3 completed.',
+        message: isCorrect
+          ? '🎉 SPOT ON! CORRECT AI IMAGE IDENTIFIED! Round 3 completed.'
+          : '❌ WRONG SELECTION! Round 3 completed.',
       });
     }
 
     return res.json({
       correct: isCorrect,
+      correct_side: challenge.correct_side,
       completed: false,
       has_next_question: true,
-      message: isCorrect ? 'Correct choice! Advancing to next AI vs Real question...' : 'Incorrect choice. Advancing to next AI vs Real question...',
+      message: isCorrect
+        ? '🎉 SPOT ON! CORRECT AI IMAGE IDENTIFIED!'
+        : '❌ WRONG SELECTION! THAT WAS A REAL IMAGE.',
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

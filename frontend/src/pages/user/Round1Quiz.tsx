@@ -102,12 +102,18 @@ export const Round1Quiz: React.FC = () => {
             type: 'error',
           });
         }
-        setTimeout(() => fetchCurrentQuestion(), 1500);
+        fetchCurrentQuestion();
       })
       .subscribe();
 
+    // Fallback polling interval every 2.5 seconds when waiting for next question
+    const pollInterval = setInterval(() => {
+      fetchCurrentQuestion();
+    }, 2500);
+
     return () => {
       supabaseRealtime.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [user?.slot_id]);
 
