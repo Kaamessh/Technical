@@ -306,6 +306,7 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
       decodeHint = await getTeamDecodeHintPair(teamId!, 1);
       return res.json({
         correct: false,
+        correct_option_index: question.correct_index,
         completed: true,
         points: 0,
         decode_hint: decodeHint,
@@ -315,10 +316,13 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
 
     return res.json({
       correct: isCorrect,
+      correct_option_index: question.correct_index,
       points: pointsAwarded,
       decode_hint: decodeHint,
       waiting_for_next: !isCorrect,
-      message: isCorrect ? 'Correct answer!' : 'Incorrect choice submitted (0 pts). Waiting for next question...',
+      message: isCorrect
+        ? '🎉 Congratulations! Your answer is RIGHT!'
+        : '❌ Wrong Answer! The correct answer is highlighted in green.',
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
