@@ -56,7 +56,7 @@ export async function completeTeamRound(
     });
 
     // 2. Fetch all completed teams in this slot for this round, sorted by completion timestamp ascending
-    const teamIds = slotTeams.map((t) => t.id);
+    const teamIds = slotTeams ? slotTeams.map((t) => t.id) : [];
     const { data: completions } = await supabase
       .from('team_round_progress')
       .select('team_id, completed_at')

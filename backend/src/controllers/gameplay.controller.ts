@@ -111,6 +111,8 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
   }
 }
 
+export const getRound1Current = getRound1CurrentQuestion;
+
 // ROUND 1: Answer submission
 export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Response) {
   try {
