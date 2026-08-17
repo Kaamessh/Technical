@@ -223,8 +223,13 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
           throw new Error('Queue insert error: ' + insertErr.message);
         }
 
-        // Broadcast first question live
+        // Broadcast start countdown and first question live
         if (queuePayload.length > 0) {
+          await broadcastToSlot(id, 'round:start_countdown', {
+            slot_id: id,
+            countdown_seconds: 3,
+          });
+
           await broadcastToSlot(id, 'question:live', {
             slot_id: id,
             sequence_order: 1,

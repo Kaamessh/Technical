@@ -165,14 +165,25 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
     }
 
     // --- FAST PATH RESPONSE (<50ms) ---
-    // Member receives immediate answer result without waiting for background DB writes or leaderboard updates!
+    // If team answered correct BUT was not the first claimer, return won_by_other so only first claimer gets green!
+    if (isCorrect && !isFirstClaim) {
+      return res.json({
+        correct: false,
+        won_by_other: true,
+        correct_option_index: question.correct_index,
+        points: 0,
+        waiting_for_next: true,
+        message: '⚠️ Question won by another team! Transitioning to next question...',
+      });
+    }
+
     res.json({
       correct: isCorrect,
       correct_option_index: question.correct_index,
       points: isCorrect ? 100 : 0,
       waiting_for_next: !isCorrect,
       message: isCorrect
-        ? '🎉 Congratulations! Your answer is RIGHT!'
+        ? '🎉 CONGRATULATIONS! YOU WERE THE FIRST TO ANSWER CORRECTLY!'
         : '❌ Wrong Answer! The correct answer is highlighted in green.',
     });
 
