@@ -19,7 +19,7 @@ export const SlotJoin: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await apiClient.post('/teams/join-slot', {
+      const res = await apiClient.post('/slots/join', {
         slot_code: slotCode,
       });
       updateTeamSlot(res.data.slot_id);
