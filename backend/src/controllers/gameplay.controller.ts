@@ -48,6 +48,10 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
       return res.json({ completed: true, message: 'Round 1 completed', decode_hint: decodeHint });
     }
 
+    // Check total teams in this slot
+    const { data: slotTeams } = await supabase.from('teams').select('id').eq('slot_id', slotId);
+    const totalSlotTeams = slotTeams ? slotTeams.length : 1;
+
     // Check live question in queue for this slot
     const { data: liveItem } = await supabase
       .from('slot_question_queue')
@@ -57,7 +61,7 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
       .single();
 
     if (liveItem && liveItem.quiz_questions) {
-      // Check if this team already attempted this live question
+      // Check if this team already attempted this question
       const { data: attempt } = await supabase
         .from('points_ledger')
         .select('id')
@@ -67,6 +71,12 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
         .single();
 
       if (attempt) {
+        if (totalSlotTeams === 1) {
+          // Single-team slot: completion after 1 attempted question
+          await completeTeamRound(teamId!, slotId!, 1, 60, 0, 'completed single team question');
+          const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
+          return res.json({ completed: true, message: 'Single team slot Round 1 completed', decode_hint: decodeHint });
+        }
         return res.json({
           waiting_for_next: true,
           message: 'Incorrect choice submitted. Waiting for next question broadcast...',
@@ -93,17 +103,17 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
       .eq('status', 'pending')
       .limit(1);
 
-    if (pendingItem && pendingItem.length > 0) {
+    if (pendingItem && pendingItem.length > 0 && totalSlotTeams > 1) {
       return res.json({ waiting_for_next: true, message: 'Waiting for next question broadcast...' });
     }
 
-    // No live or pending questions remain in queue -> Complete Round 1 for team with 0 pts if uncompleted
-    await completeTeamRound(teamId!, slotId!, 1, 60, 0, 'completed all questions in queue');
+    // No live questions or single-team slot -> Complete Round 1 for team
+    await completeTeamRound(teamId!, slotId!, 1, 60, 0, 'completed round 1');
     const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
 
     return res.json({
       completed: true,
-      message: 'Round 1 queue finished',
+      message: 'Round 1 finished',
       decode_hint: decodeHint,
     });
   } catch (error: any) {
@@ -138,9 +148,41 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
     const isCorrect = question.correct_index === selected_index;
     const timeTakenSec = time_taken || (queueItem.live_started_at ? (Date.now() - new Date(queueItem.live_started_at).getTime()) / 1000 : 10);
 
+    // Check total teams in this slot
+    const { data: slotTeams } = await supabase.from('teams').select('id').eq('slot_id', slotId);
+    const totalSlotTeams = slotTeams ? slotTeams.length : 1;
+
     let pointsAwarded = 0;
     let decodeHint = null;
 
+    if (totalSlotTeams === 1) {
+      // SINGLE-TEAM SLOT RULE: Exactly 1 question is posted and Round 1 completes immediately after answering!
+      await supabase
+        .from('slot_question_queue')
+        .update({
+          status: isCorrect ? 'won' : 'expired',
+          won_by_team_id: isCorrect ? teamId : null,
+          won_at: new Date().toISOString(),
+        })
+        .eq('id', queue_id);
+
+      const result = await completeTeamRound(teamId!, slotId!, 1, timeTakenSec, isCorrect ? undefined : 0);
+      pointsAwarded = isCorrect ? result.points : 0;
+      decodeHint = await getTeamDecodeHintPair(teamId!, 1);
+
+      return res.json({
+        correct: isCorrect,
+        correct_option_index: question.correct_index,
+        completed: true,
+        points: pointsAwarded,
+        decode_hint: decodeHint,
+        message: isCorrect
+          ? '🎉 Correct answer! Single-team slot Round 1 completed.'
+          : '❌ Wrong Answer! Single-team slot Round 1 completed.',
+      });
+    }
+
+    // MULTI-TEAM SLOT RULE: Standard competitive live quiz
     if (isCorrect) {
       const { data: lockResult } = await supabase
         .from('slot_question_queue')
@@ -192,9 +234,6 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
         points: 0,
         reason: `incorrect attempt: ${queue_id}`,
       });
-
-      const { data: slotTeams } = await supabase.from('teams').select('id').eq('slot_id', slotId);
-      const totalSlotTeams = slotTeams ? slotTeams.length : 1;
 
       const { data: wrongAttempts } = await supabase
         .from('points_ledger')
