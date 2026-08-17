@@ -359,8 +359,13 @@ export async function getRound2Challenge(req: AuthenticatedTeamRequest, res: Res
       return res.status(404).json({ error: 'No workflow challenge configured for this event.' });
     }
 
-    const rawUrls = (challenge.image_urls as string[]) || [];
-    const distractorIdx = rawUrls.indexOf('__DISTRACTOR__');
+    const rawUrls = ((challenge.image_urls as string[]) || []).map((s) =>
+      String(s)
+        .replace(/^Images\//i, '')
+        .replace(/^%2FImages%2F/i, '')
+        .replace(/^Images%2F/i, '')
+    );
+    const distractorIdx = rawUrls.findIndex((s) => s.includes('__DISTRACTOR__'));
 
     let realSteps: string[] = [];
     let distractorSteps: string[] = [];
@@ -397,11 +402,18 @@ export async function submitRound2Workflow(req: AuthenticatedTeamRequest, res: R
     const slotId = req.team?.slot_id;
     const { challenge_id, submitted_labels, submitted_urls, time_taken } = req.body;
 
-    const labelsToTest = submitted_labels || submitted_urls;
+    const rawLabels = submitted_labels || submitted_urls;
 
-    if (!challenge_id || !Array.isArray(labelsToTest)) {
+    if (!challenge_id || !Array.isArray(rawLabels)) {
       return res.status(400).json({ error: 'challenge_id and submitted_labels array required' });
     }
+
+    const labelsToTest = rawLabels.map((s) =>
+      String(s)
+        .replace(/^Images\//i, '')
+        .replace(/^%2FImages%2F/i, '')
+        .replace(/^Images%2F/i, '')
+    );
 
     const { data: challenge } = await supabase
       .from('workflow_challenges')
@@ -411,8 +423,13 @@ export async function submitRound2Workflow(req: AuthenticatedTeamRequest, res: R
 
     if (!challenge) return res.status(404).json({ error: 'Challenge not found' });
 
-    const rawUrls = (challenge.image_urls as string[]) || [];
-    const distractorIdx = rawUrls.indexOf('__DISTRACTOR__');
+    const rawUrls = ((challenge.image_urls as string[]) || []).map((s) =>
+      String(s)
+        .replace(/^Images\//i, '')
+        .replace(/^%2FImages%2F/i, '')
+        .replace(/^Images%2F/i, '')
+    );
+    const distractorIdx = rawUrls.findIndex((s) => s.includes('__DISTRACTOR__'));
     const realSteps = distractorIdx !== -1 ? rawUrls.slice(0, distractorIdx) : rawUrls;
 
     const isCorrect =

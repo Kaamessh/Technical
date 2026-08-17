@@ -497,8 +497,13 @@ export const QuestionBank: React.FC = () => {
           <div className="lg:col-span-2 space-y-4">
             <h3 className="text-base font-extrabold text-slate-900">Configured Workflows ({workflowChallenges.length})</h3>
             {workflowChallenges.map((wf) => {
-              const rawUrls = (wf.image_urls as string[]) || [];
-              const distIdx = rawUrls.indexOf('__DISTRACTOR__');
+              const rawUrls = ((wf.image_urls as string[]) || []).map((s) =>
+                String(s)
+                  .replace(/^Images\//i, '')
+                  .replace(/^%2FImages%2F/i, '')
+                  .replace(/^Images%2F/i, '')
+              );
+              const distIdx = rawUrls.findIndex((s) => s.includes('__DISTRACTOR__'));
               const realList = distIdx !== -1 ? rawUrls.slice(0, distIdx) : rawUrls;
               const distList = distIdx !== -1 ? rawUrls.slice(distIdx + 1) : [];
 
