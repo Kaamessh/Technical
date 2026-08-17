@@ -4,7 +4,7 @@ import { apiClient } from '../../lib/apiClient';
 import { Timer } from '../../components/Timer';
 import { DecodePopup } from '../../components/DecodePopup';
 import { ConfettiEffect } from '../../components/ConfettiEffect';
-import { CheckCircle2, AlertCircle, ArrowDown, Shuffle, Sparkles, Layers } from 'lucide-react';
+import { CheckCircle2, AlertCircle, ArrowDown, Shuffle, Sparkles, Layers, Move } from 'lucide-react';
 
 interface StepItem {
   id: string;
@@ -27,6 +27,10 @@ export const Round2Workflow: React.FC = () => {
   const [startTime] = useState<number>(Date.now());
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Drag & Drop state
+  const [draggedLabel, setDraggedLabel] = useState<string | null>(null);
+  const [dragOverSlotIdx, setDragOverSlotIdx] = useState<number | null>(null);
 
   // Decode popup state
   const [showDecode, setShowDecode] = useState(false);
@@ -70,20 +74,25 @@ export const Round2Workflow: React.FC = () => {
   const leftPoolItems = availablePoolItems.slice(0, halfLength);
   const rightPoolItems = availablePoolItems.slice(halfLength);
 
-  // Place item into first empty target slot or specified slot
+  // Place item into specified target slot or first empty slot
   const handlePlaceCard = (label: string, targetSlotIdx?: number) => {
     setFeedback(null);
     setPlacedSlots((prevSlots) => {
       const next = [...prevSlots];
 
-      // If card is already placed in a slot, clear its old slot
+      // If card is already placed in another slot, clear its old slot
       const existingIdx = next.indexOf(label);
       if (existingIdx !== -1) {
         next[existingIdx] = null;
       }
 
       if (targetSlotIdx !== undefined && targetSlotIdx >= 0 && targetSlotIdx < next.length) {
+        // Swap if target slot already contains another card
+        const existingCardAtTarget = next[targetSlotIdx];
         next[targetSlotIdx] = label;
+        if (existingCardAtTarget && existingIdx !== -1) {
+          next[existingIdx] = existingCardAtTarget;
+        }
       } else {
         // Place in first empty slot
         const emptyIdx = next.indexOf(null);
@@ -103,6 +112,47 @@ export const Round2Workflow: React.FC = () => {
       next[slotIdx] = null;
       return next;
     });
+  };
+
+  // --- HTML5 Drag & Drop Event Handlers ---
+  const handleDragStart = (e: React.DragEvent, label: string) => {
+    e.dataTransfer.setData('text/plain', label);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedLabel(label);
+  };
+
+  const handleDragOverSlot = (e: React.DragEvent, slotIdx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverSlotIdx !== slotIdx) {
+      setDragOverSlotIdx(slotIdx);
+    }
+  };
+
+  const handleDragLeaveSlot = (e: React.DragEvent, slotIdx: number) => {
+    e.preventDefault();
+    if (dragOverSlotIdx === slotIdx) {
+      setDragOverSlotIdx(null);
+    }
+  };
+
+  const handleDropOnSlot = (e: React.DragEvent, targetSlotIdx: number) => {
+    e.preventDefault();
+    setDragOverSlotIdx(null);
+    const label = e.dataTransfer.getData('text/plain') || draggedLabel;
+    if (label) {
+      handlePlaceCard(label, targetSlotIdx);
+    }
+    setDraggedLabel(null);
+  };
+
+  const handleDropOnPool = (e: React.DragEvent) => {
+    e.preventDefault();
+    const label = e.dataTransfer.getData('text/plain') || draggedLabel;
+    if (label) {
+      setPlacedSlots((prevSlots) => prevSlots.map((s) => (s === label ? null : s)));
+    }
+    setDraggedLabel(null);
   };
 
   // Shuffle remaining pool cards
@@ -182,8 +232,8 @@ export const Round2Workflow: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1 flex items-center gap-2">
             <Layers className="w-7 h-7 text-indigo-600" /> {title || 'Data Science Workflow Puzzle'}
           </h1>
-          <p className="text-xs font-bold text-slate-500 mt-1">
-            Drag or click the steps into the correct flow order from top to bottom!
+          <p className="text-xs font-bold text-slate-500 mt-1 flex items-center gap-1">
+            <Move className="w-3.5 h-3.5 text-indigo-600" /> Drag and drop cards into any target slot, or click to place!
           </p>
         </div>
 
@@ -212,7 +262,7 @@ export const Round2Workflow: React.FC = () => {
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-400 animate-pulse" />
               <span className="text-sm font-extrabold text-slate-200 uppercase tracking-wide">
-                Arrange {totalSlots} Real Steps in Correct Order
+                Drag & Drop {totalSlots} Real Steps into Correct Flow Order
               </span>
             </div>
 
@@ -226,18 +276,25 @@ export const Round2Workflow: React.FC = () => {
 
           {/* MAIN 3-COLUMN PUZZLE LAYOUT */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-            {/* LEFT SCATTERED POOL */}
-            <div className="lg:col-span-1 space-y-3">
+            {/* LEFT SCATTERED POOL (DROP ZONE FOR UNPLACING) */}
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDropOnPool}
+              className="lg:col-span-1 space-y-3 min-h-[300px] p-2 rounded-2xl border-2 border-dashed border-slate-800/60 bg-slate-950/40"
+            >
               <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider text-center lg:text-left mb-2">
                 Available Steps ({leftPoolItems.length})
               </h3>
               {leftPoolItems.map((item) => (
                 <div
                   key={item.id}
+                  draggable={true}
+                  onDragStart={(e) => handleDragStart(e, item.label)}
                   onClick={() => handlePlaceCard(item.label)}
-                  className="card-3d bg-white text-slate-900 p-3.5 rounded-2xl border-2 border-slate-200 shadow-lg hover:border-indigo-500 hover:scale-[1.03] cursor-pointer transition-all active:scale-95 flex items-center justify-between group"
+                  className="card-3d bg-white text-slate-900 p-3.5 rounded-2xl border-2 border-slate-200 shadow-lg hover:border-indigo-500 hover:scale-[1.03] cursor-grab active:cursor-grabbing transition-all flex items-center justify-between group select-none"
                 >
                   <span className="font-extrabold text-sm tracking-tight flex items-center gap-2">
+                    <Move className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600" />
                     {item.label}
                   </span>
                   <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md opacity-80 group-hover:opacity-100">
@@ -253,70 +310,100 @@ export const Round2Workflow: React.FC = () => {
                 <Layers className="w-4 h-4 text-amber-400" /> Target Flow Sequence ({totalSlots} Steps)
               </h3>
 
-              {placedSlots.map((slotLabel, idx) => (
-                <React.Fragment key={idx}>
-                  <div className="relative">
-                    {slotLabel ? (
-                      // FILLED SLOT CARD
-                      <div
-                        onClick={() => handleRemoveFromSlot(idx)}
-                        className="p-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-sm shadow-xl border-2 border-emerald-400 flex items-center justify-between cursor-pointer hover:brightness-110 transition-all group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-7 h-7 rounded-lg bg-emerald-800/60 text-white flex items-center justify-center text-xs font-mono font-bold border border-emerald-400/40">
-                            #{idx + 1}
-                          </span>
-                          <span className="text-base tracking-tight">{slotLabel}</span>
+              {placedSlots.map((slotLabel, idx) => {
+                const isHovered = dragOverSlotIdx === idx;
+
+                return (
+                  <React.Fragment key={idx}>
+                    <div
+                      onDragOver={(e) => handleDragOverSlot(e, idx)}
+                      onDragLeave={(e) => handleDragLeaveSlot(e, idx)}
+                      onDrop={(e) => handleDropOnSlot(e, idx)}
+                      className="relative"
+                    >
+                      {slotLabel ? (
+                        // FILLED SLOT CARD (DRAGGABLE TO RE-ARRANGE OR REMOVE)
+                        <div
+                          draggable={true}
+                          onDragStart={(e) => handleDragStart(e, slotLabel)}
+                          onClick={() => handleRemoveFromSlot(idx)}
+                          className={`p-4 rounded-xl font-extrabold text-sm shadow-xl border-2 flex items-center justify-between cursor-grab active:cursor-grabbing transition-all select-none group ${
+                            isHovered
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 border-indigo-300 ring-4 ring-indigo-500/30'
+                              : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-400 hover:brightness-110'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="w-7 h-7 rounded-lg bg-emerald-800/60 text-white flex items-center justify-center text-xs font-mono font-bold border border-emerald-400/40">
+                              #{idx + 1}
+                            </span>
+                            <span className="text-base tracking-tight">{slotLabel}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-200" />
+                            <span className="text-[10px] bg-emerald-800/80 text-emerald-100 px-2 py-0.5 rounded font-mono uppercase group-hover:bg-rose-600 group-hover:text-white transition-colors">
+                              Drag / Click to Remove
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-200" />
-                          <span className="text-[10px] bg-emerald-800/80 text-emerald-100 px-2 py-0.5 rounded font-mono uppercase group-hover:bg-rose-600 group-hover:text-white transition-colors">
-                            Click to Remove
+                      ) : (
+                        // EMPTY TARGET SLOT DROPZONE
+                        <div
+                          onClick={() => {
+                            const firstAvailable = availablePoolItems[0];
+                            if (firstAvailable) handlePlaceCard(firstAvailable.label, idx);
+                          }}
+                          className={`p-4 rounded-xl border-2 border-dashed font-extrabold text-sm flex items-center justify-between cursor-pointer transition-all ${
+                            isHovered
+                              ? 'border-indigo-400 bg-indigo-950/90 text-indigo-200 ring-4 ring-indigo-500/30 scale-[1.01]'
+                              : 'border-slate-700 bg-slate-950/80 text-slate-400 hover:border-indigo-400 hover:text-indigo-300 hover:bg-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="w-7 h-7 rounded-lg bg-slate-800 text-slate-500 flex items-center justify-center text-xs font-mono font-bold">
+                              #{idx + 1}
+                            </span>
+                            <span className="text-xs uppercase tracking-widest text-slate-400 font-mono">
+                              {isHovered ? 'DROP STEP HERE' : 'DROP OR PLACE STEP HERE'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] border border-slate-700 px-2 py-0.5 rounded text-slate-500 font-mono">
+                            {isHovered ? 'DROP HERE' : 'EMPTY'}
                           </span>
                         </div>
-                      </div>
-                    ) : (
-                      // EMPTY TARGET SLOT DROPZONE
-                      <div
-                        onClick={() => {
-                          const firstAvailable = availablePoolItems[0];
-                          if (firstAvailable) handlePlaceCard(firstAvailable.label, idx);
-                        }}
-                        className="p-4 rounded-xl border-2 border-dashed border-slate-700 bg-slate-950/80 text-slate-400 font-extrabold text-sm flex items-center justify-between hover:border-indigo-400 hover:text-indigo-300 hover:bg-slate-900 cursor-pointer transition-all"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-7 h-7 rounded-lg bg-slate-800 text-slate-500 flex items-center justify-center text-xs font-mono font-bold">
-                            #{idx + 1}
-                          </span>
-                          <span className="text-xs uppercase tracking-widest text-slate-500 font-mono">PLACE STEP HERE</span>
-                        </div>
-                        <span className="text-[10px] border border-slate-700 px-2 py-0.5 rounded text-slate-500 font-mono">EMPTY</span>
+                      )}
+                    </div>
+
+                    {/* DOWN ARROW CONNECTOR */}
+                    {idx < totalSlots - 1 && (
+                      <div className="flex justify-center my-0.5">
+                        <ArrowDown className="w-5 h-5 text-indigo-400/70 animate-bounce" />
                       </div>
                     )}
-                  </div>
-
-                  {/* DOWN ARROW CONNECTOR */}
-                  {idx < totalSlots - 1 && (
-                    <div className="flex justify-center my-0.5">
-                      <ArrowDown className="w-5 h-5 text-indigo-400/70 animate-bounce" />
-                    </div>
-                  )}
-                </React.Fragment>
-              ))}
+                  </React.Fragment>
+                );
+              })}
             </div>
 
-            {/* RIGHT SCATTERED POOL */}
-            <div className="lg:col-span-1 space-y-3">
+            {/* RIGHT SCATTERED POOL (DROP ZONE FOR UNPLACING) */}
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDropOnPool}
+              className="lg:col-span-1 space-y-3 min-h-[300px] p-2 rounded-2xl border-2 border-dashed border-slate-800/60 bg-slate-950/40"
+            >
               <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider text-center lg:text-left mb-2">
                 Available Steps ({rightPoolItems.length})
               </h3>
               {rightPoolItems.map((item) => (
                 <div
                   key={item.id}
+                  draggable={true}
+                  onDragStart={(e) => handleDragStart(e, item.label)}
                   onClick={() => handlePlaceCard(item.label)}
-                  className="card-3d bg-white text-slate-900 p-3.5 rounded-2xl border-2 border-slate-200 shadow-lg hover:border-indigo-500 hover:scale-[1.03] cursor-pointer transition-all active:scale-95 flex items-center justify-between group"
+                  className="card-3d bg-white text-slate-900 p-3.5 rounded-2xl border-2 border-slate-200 shadow-lg hover:border-indigo-500 hover:scale-[1.03] cursor-grab active:cursor-grabbing transition-all flex items-center justify-between group select-none"
                 >
                   <span className="font-extrabold text-sm tracking-tight flex items-center gap-2">
+                    <Move className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600" />
                     {item.label}
                   </span>
                   <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md opacity-80 group-hover:opacity-100">
