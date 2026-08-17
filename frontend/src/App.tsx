@@ -210,8 +210,10 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
         <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white p-6">
           <div className="max-w-md w-full text-center space-y-4 bg-slate-950 p-8 rounded-2xl border border-slate-800 shadow-2xl">
             <h2 className="text-2xl font-black text-rose-500">Application Error</h2>
-            <p className="text-xs text-slate-400 font-mono">
-              {this.state.error?.message || 'An unexpected error occurred.'}
+            <p className="text-xs text-slate-400 font-mono break-words">
+              {typeof this.state.error?.message === 'string'
+                ? this.state.error.message
+                : String(this.state.error || 'An unexpected error occurred.')}
             </p>
             <button
               onClick={() => {

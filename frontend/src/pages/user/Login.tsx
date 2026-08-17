@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { apiClient } from '../../lib/apiClient';
+import { extractErrorMessage } from '../../lib/errorUtils';
 import { Users, Lock, ArrowRight } from 'lucide-react';
 
 export const TeamLogin: React.FC = () => {
@@ -30,7 +31,7 @@ export const TeamLogin: React.FC = () => {
         navigate('/team/join-slot');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid team name or password.');
+      setError(extractErrorMessage(err, 'Invalid team name or password.'));
     } finally {
       setLoading(false);
     }
@@ -46,7 +47,7 @@ export const TeamLogin: React.FC = () => {
         <p className="text-xs text-center text-slate-500 mb-6">Sign in to your registered team account</p>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+          <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold break-words">
             {error}
           </div>
         )}

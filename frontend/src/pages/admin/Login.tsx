@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { apiClient } from '../../lib/apiClient';
+import { extractErrorMessage } from '../../lib/errorUtils';
 import { Shield, Lock, Mail, ArrowRight } from 'lucide-react';
 
 export const AdminLogin: React.FC = () => {
@@ -23,7 +24,7 @@ export const AdminLogin: React.FC = () => {
       loginAdmin(res.data.token, res.data.admin);
       navigate('/admin/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid admin credentials.');
+      setError(extractErrorMessage(err, 'Invalid admin credentials.'));
     } finally {
       setLoading(false);
     }
@@ -39,7 +40,7 @@ export const AdminLogin: React.FC = () => {
         <p className="text-xs text-center text-slate-500 mb-6">Enter your administrator email and password</p>
 
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+          <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold break-words">
             {error}
           </div>
         )}

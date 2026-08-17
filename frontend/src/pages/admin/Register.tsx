@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { apiClient } from '../../lib/apiClient';
+import { extractErrorMessage } from '../../lib/errorUtils';
 import { Shield, Lock, Mail, User, ArrowRight } from 'lucide-react';
 
 export const AdminRegister: React.FC = () => {
@@ -29,8 +30,7 @@ export const AdminRegister: React.FC = () => {
       navigate('/admin/dashboard');
     } catch (err: any) {
       console.error('Registration error details:', err);
-      const serverMsg = err.response?.data?.error || err.message || 'Registration failed.';
-      setError(serverMsg);
+      setError(extractErrorMessage(err, 'Registration failed.'));
     } finally {
       setLoading(false);
     }
