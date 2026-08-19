@@ -4,10 +4,11 @@ import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware';
 import { AuthenticatedTeamRequest } from '../middlewares/authTeam.middleware';
 import { broadcastToSlot } from '../services/realtime.service';
 import { signTeamToken } from '../utils/jwt';
+import { setSlotLimits, getSlotLimits, getAllSlotLimits } from '../services/slotLimits.service';
 
 export async function createSlot(req: AuthenticatedAdminRequest, res: Response) {
   try {
-    const { event_id, slot_number, custom_code } = req.body;
+    const { event_id, slot_number, custom_code, r3_question_limit, r4_question_limit } = req.body;
     if (!event_id || !slot_number) {
       return res.status(400).json({ error: 'event_id and slot_number required' });
     }
@@ -29,7 +30,16 @@ export async function createSlot(req: AuthenticatedAdminRequest, res: Response) 
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
-    return res.status(201).json(slot);
+
+    const r3Limit = Number(r3_question_limit) || 1;
+    const r4Limit = Number(r4_question_limit) || 1;
+    await setSlotLimits(slot.id, r3Limit, r4Limit, event_id);
+
+    return res.status(201).json({
+      ...slot,
+      r3_question_limit: r3Limit,
+      r4_question_limit: r4Limit,
+    });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -38,14 +48,24 @@ export async function createSlot(req: AuthenticatedAdminRequest, res: Response) 
 export async function getSlotsByEvent(req: any, res: Response) {
   try {
     const { eventId } = req.params;
-    const { data: slots, error } = await supabase
-      .from('slots')
-      .select('*')
-      .eq('event_id', eventId)
-      .order('slot_number', { ascending: true });
+    const [{ data: slots, error }, limits] = await Promise.all([
+      supabase
+        .from('slots')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('slot_number', { ascending: true }),
+      getAllSlotLimits(),
+    ]);
 
     if (error) return res.status(500).json({ error: error.message });
-    return res.json(slots);
+
+    const slotsWithLimits = (slots || []).map((s) => ({
+      ...s,
+      r3_question_limit: limits[s.id]?.r3_limit || 1,
+      r4_question_limit: limits[s.id]?.r4_limit || 1,
+    }));
+
+    return res.json(slotsWithLimits);
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -54,14 +74,17 @@ export async function getSlotsByEvent(req: any, res: Response) {
 export async function getSlotStatus(req: any, res: Response) {
   try {
     const { id } = req.params;
-    const { data: slot, error } = await supabase
-      .from('slots')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const [{ data: slot, error }, limits] = await Promise.all([
+      supabase.from('slots').select('*').eq('id', id).single(),
+      getSlotLimits(id),
+    ]);
 
     if (error || !slot) return res.status(404).json({ error: 'Slot not found' });
-    return res.json(slot);
+    return res.json({
+      ...slot,
+      r3_question_limit: limits.r3_limit,
+      r4_question_limit: limits.r4_limit,
+    });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -112,37 +135,33 @@ export async function joinSlot(req: AuthenticatedTeamRequest, res: Response) {
     });
 
     // --- Dynamic Pool Assignment ---
-    // Check if team already has a word
     const { data: existingWord } = await supabase.from('team_decode_words').select('id').eq('team_id', teamId).single();
-    
+
     if (!existingWord) {
-      // Fetch pool for this event
       const { data: poolData } = await supabase
         .from('quiz_questions')
         .select('*')
         .eq('event_id', slot.event_id)
         .eq('question_text', '__DECODE_POOL__')
         .single();
-        
+
       let assignedPoolWord = null;
       if (poolData && Array.isArray(poolData.options) && poolData.options.length > 0) {
-        // Fetch all teams for this event
         const { data: eventTeams } = await supabase.from('teams').select('id').eq('event_id', slot.event_id);
-        const eventTeamIds = eventTeams ? eventTeams.map(t => t.id) : [];
-        
-        // Fetch all assigned words
-        const { data: assignedWords } = await supabase.from('team_decode_words').select('word, binary_clue').in('team_id', eventTeamIds);
-        
-        // Find unassigned pool words
+        const eventTeamIds = eventTeams ? eventTeams.map((t) => t.id) : [];
+
+        const { data: assignedWords } = await supabase
+          .from('team_decode_words')
+          .select('word, binary_clue')
+          .in('team_id', eventTeamIds);
+
         const availableWords = poolData.options.filter((pw: any) => {
-          return !assignedWords?.some(aw => aw.word === pw.target_word && aw.binary_clue === pw.binary_clue);
+          return !assignedWords?.some((aw) => aw.word === pw.target_word && aw.binary_clue === pw.binary_clue);
         });
-        
+
         if (availableWords.length > 0) {
-          // Pick random unassigned word
           assignedPoolWord = availableWords[Math.floor(Math.random() * availableWords.length)];
         } else {
-          // Fallback to random pool word if we ran out
           assignedPoolWord = poolData.options[Math.floor(Math.random() * poolData.options.length)];
         }
       }
@@ -173,7 +192,7 @@ export async function joinSlot(req: AuthenticatedTeamRequest, res: Response) {
 export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Response) {
   try {
     const { id } = req.params;
-    const { status, current_round } = req.body;
+    const { status, current_round, r3_question_limit, r4_question_limit } = req.body;
 
     const { data: slot, error } = await supabase
       .from('slots')
@@ -183,33 +202,36 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
 
     if (error || !slot) return res.status(404).json({ error: 'Slot not found' });
 
+    if (r3_question_limit !== undefined || r4_question_limit !== undefined) {
+      const currentLimits = await getSlotLimits(id);
+      const newR3 = r3_question_limit !== undefined ? Number(r3_question_limit) : currentLimits.r3_limit;
+      const newR4 = r4_question_limit !== undefined ? Number(r4_question_limit) : currentLimits.r4_limit;
+      await setSlotLimits(id, newR3, newR4, slot.event_id);
+    }
+
     // If starting Round 1 (transitioning to in_progress or starting queue), populate queue
     if (status === 'in_progress' && (slot.status === 'scheduled' || slot.status === 'open')) {
-      // Get all teams in slot
       const { data: teams } = await supabase.from('teams').select('id').eq('slot_id', id);
       const teamCount = teams ? teams.length : 1;
       const queueLength = Math.max(1, teamCount - 1);
 
-      // Fetch questions from quiz_questions bank for this event
       const { data: questions } = await supabase
         .from('quiz_questions')
         .select('id')
         .eq('event_id', slot.event_id)
-        .neq('question_text', '__DECODE_POOL__');
+        .neq('question_text', '__DECODE_POOL__')
+        .neq('question_text', '__SLOT_LIMITS__');
 
       if (!questions || questions.length === 0) {
         throw new Error('Cannot start Round 1: No quiz questions found for this event.');
       }
 
       if (questions && questions.length > 0) {
-        // Shuffle & pick N questions
         const shuffled = [...questions].sort(() => 0.5 - Math.random());
         const selected = shuffled.slice(0, queueLength);
 
-        // Delete any existing queue for this slot
         await supabase.from('slot_question_queue').delete().eq('slot_id', id);
 
-        // Insert new queue items
         const queuePayload = selected.map((q, idx) => ({
           slot_id: id,
           question_id: q.id,
@@ -223,7 +245,6 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
           throw new Error('Queue insert error: ' + insertErr.message);
         }
 
-        // Broadcast start countdown and first question live
         if (queuePayload.length > 0) {
           await broadcastToSlot(id, 'round:start_countdown', {
             slot_id: id,
@@ -249,7 +270,14 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
       .single();
 
     if (updateErr) return res.status(500).json({ error: updateErr.message });
-    return res.json(updatedSlot);
+
+    const finalLimits = await getSlotLimits(id);
+
+    return res.json({
+      ...updatedSlot,
+      r3_question_limit: finalLimits.r3_limit,
+      r4_question_limit: finalLimits.r4_limit,
+    });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -258,28 +286,8 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
 export async function deleteSlot(req: AuthenticatedAdminRequest, res: Response) {
   try {
     const { id } = req.params;
-    
-    // Check if slot exists
-    const { data: slot, error: fetchErr } = await supabase
-      .from('slots')
-      .select('id')
-      .eq('id', id)
-      .single();
-
-    if (fetchErr || !slot) {
-      return res.status(404).json({ error: 'Slot not found' });
-    }
-
-    // Delete the slot
-    const { error: deleteErr } = await supabase
-      .from('slots')
-      .delete()
-      .eq('id', id);
-
-    if (deleteErr) {
-      return res.status(500).json({ error: deleteErr.message });
-    }
-
+    const { error } = await supabase.from('slots').delete().eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
     return res.json({ message: 'Slot deleted successfully' });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

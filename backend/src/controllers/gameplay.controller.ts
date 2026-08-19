@@ -4,6 +4,7 @@ import { AuthenticatedTeamRequest } from '../middlewares/authTeam.middleware';
 import { completeTeamRound, calculateTaskScore } from '../services/scoring.service';
 import { broadcastToSlot } from '../services/realtime.service';
 import { getRoundQuestionLimit, getPMaxForRound } from '../services/taskSettings.service';
+import { getSlotLimits } from '../services/slotLimits.service';
 
 // In-Memory Fast Atomic First-Answer Claim Lock (Reduces DB locks to <1ms)
 const wonQuestionLocks = new Set<string>();
@@ -432,7 +433,10 @@ export async function getRound3Challenge(req: AuthenticatedTeamRequest, res: Res
   try {
     const eventId = req.team?.event_id;
     const teamId = req.team?.id;
-    const r3Limit = getRoundQuestionLimit(3);
+    const slotId = req.team?.slot_id;
+    
+    const slotLimits = slotId ? await getSlotLimits(slotId) : { r3_limit: 1, r4_limit: 1 };
+    const r3Limit = slotLimits.r3_limit || getRoundQuestionLimit(3);
 
     const [{ data: progress }, { data: ledgerEntries }, { data: challenges }] = await Promise.all([
       supabase
@@ -537,7 +541,9 @@ export async function submitRound3AiOrReal(req: AuthenticatedTeamRequest, res: R
           reason: `round3_attempt: ${challenge_id}`,
         });
 
-        const r3Limit = getRoundQuestionLimit(3);
+        const slotLimits = slotId ? await getSlotLimits(slotId) : { r3_limit: 1, r4_limit: 1 };
+        const r3Limit = slotLimits.r3_limit || getRoundQuestionLimit(3);
+
         const [{ data: ledgerEntries }, { data: allChallenges }] = await Promise.all([
           supabase.from('points_ledger').select('reason').eq('team_id', teamId).eq('round_number', 3),
           supabase.from('ai_or_real_challenges').select('id').eq('event_id', req.team?.event_id),
@@ -568,7 +574,10 @@ export async function getRound4Question(req: AuthenticatedTeamRequest, res: Resp
   try {
     const eventId = req.team?.event_id;
     const teamId = req.team?.id;
-    const r4Limit = getRoundQuestionLimit(4);
+    const slotId = req.team?.slot_id;
+
+    const slotLimits = slotId ? await getSlotLimits(slotId) : { r3_limit: 1, r4_limit: 1 };
+    const r4Limit = slotLimits.r4_limit || getRoundQuestionLimit(4);
 
     const [{ data: progress }, { data: ledgerEntries }, { data: questions }] = await Promise.all([
       supabase
@@ -671,7 +680,9 @@ export async function submitRound4Answer(req: AuthenticatedTeamRequest, res: Res
           reason: `round4_attempt: ${question_id}`,
         });
 
-        const r4Limit = getRoundQuestionLimit(4);
+        const slotLimits = slotId ? await getSlotLimits(slotId) : { r3_limit: 1, r4_limit: 1 };
+        const r4Limit = slotLimits.r4_limit || getRoundQuestionLimit(4);
+
         const [{ data: ledgerEntries }, { data: allQuestions }] = await Promise.all([
           supabase.from('points_ledger').select('reason').eq('team_id', teamId).eq('round_number', 4),
           supabase.from('data_challenge_questions').select('id').eq('event_id', req.team?.event_id),

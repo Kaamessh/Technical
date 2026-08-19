@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../../lib/apiClient';
-import { Plus, Play, CheckCircle, Clock, Copy, Users, Radio, Trash2 } from 'lucide-react';
+import { Plus, Play, Copy, Radio, Trash2, HelpCircle, Save, Settings } from 'lucide-react';
 
 export const SlotManager: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -16,6 +16,17 @@ export const SlotManager: React.FC = () => {
   const [slotNumber, setSlotNumber] = useState(1);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
+  // Per-Slot Question Limits for Round 3 & Round 4
+  const [maxR3Available, setMaxR3Available] = useState<number>(0);
+  const [maxR4Available, setMaxR4Available] = useState<number>(0);
+  const [r3Limit, setR3Limit] = useState<number>(1);
+  const [r4Limit, setR4Limit] = useState<number>(1);
+
+  // Edit limits state for existing slots
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
+  const [editR3, setEditR3] = useState<number>(1);
+  const [editR4, setEditR4] = useState<number>(1);
+
   useEffect(() => {
     apiClient.get('/events').then((res) => {
       setEvents(res.data);
@@ -24,6 +35,27 @@ export const SlotManager: React.FC = () => {
       }
     });
   }, []);
+
+  const fetchAvailableQuestionCounts = async () => {
+    if (!selectedEventId) return;
+    try {
+      const [r3Res, r4Res] = await Promise.all([
+        apiClient.get(`/ai-or-real/event/${selectedEventId}`).catch(() => ({ data: [] })),
+        apiClient.get(`/data-challenge/event/${selectedEventId}`).catch(() => ({ data: [] })),
+      ]);
+
+      const count3 = Array.isArray(r3Res.data) ? r3Res.data.length : 0;
+      const count4 = Array.isArray(r4Res.data) ? r4Res.data.length : 0;
+
+      setMaxR3Available(count3);
+      setMaxR4Available(count4);
+
+      setR3Limit(count3 > 0 ? Math.min(3, count3) : 1);
+      setR4Limit(count4 > 0 ? Math.min(3, count4) : 1);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchSlots = async () => {
     if (!selectedEventId) return;
@@ -41,6 +73,7 @@ export const SlotManager: React.FC = () => {
 
   useEffect(() => {
     fetchSlots();
+    fetchAvailableQuestionCounts();
   }, [selectedEventId]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,6 +87,8 @@ export const SlotManager: React.FC = () => {
         event_id: selectedEventId,
         slot_number: slotNumber,
         custom_code: customCode || undefined,
+        r3_question_limit: r3Limit,
+        r4_question_limit: r4Limit,
       });
       setCustomCode('');
       fetchSlots();
@@ -70,6 +105,19 @@ export const SlotManager: React.FC = () => {
       fetchSlots();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update slot status');
+    }
+  };
+
+  const handleSaveSlotLimits = async (slotId: string) => {
+    try {
+      await apiClient.patch(`/slots/${slotId}`, {
+        r3_question_limit: editR3,
+        r4_question_limit: editR4,
+      });
+      setEditingSlotId(null);
+      fetchSlots();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to update slot question limits');
     }
   };
 
@@ -96,7 +144,7 @@ export const SlotManager: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Slot Control Center</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage competitive event slots, unique join codes, and live round execution.</p>
+          <p className="text-sm text-slate-500 mt-1">Manage competitive event slots, set Round 3 & Round 4 question limits, and trigger live rounds.</p>
         </div>
 
         {events.length > 0 && (
@@ -119,9 +167,11 @@ export const SlotManager: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Slot Creation Form */}
-        <div className="card h-fit border-indigo-100">
-          <h3 className="text-lg font-extrabold text-slate-900 mb-1">Create Slot</h3>
-          <p className="text-xs text-slate-500 mb-4">Generate a competitive slot with a unique join code for teams.</p>
+        <div className="card h-fit border-indigo-100 space-y-4">
+          <div>
+            <h3 className="text-lg font-extrabold text-slate-900 mb-1">Create Slot</h3>
+            <p className="text-xs text-slate-500">Configure a competitive slot with unique join code & round question limits.</p>
+          </div>
 
           <form onSubmit={handleCreateSlot} className="space-y-4">
             <div>
@@ -154,6 +204,53 @@ export const SlotManager: React.FC = () => {
               </span>
             </div>
 
+            {/* Per-Slot Question Limits for Round 3 & Round 4 */}
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 block flex items-center gap-1.5">
+                <Settings className="w-3.5 h-3.5 text-indigo-600" /> Per-Slot Round Question Limits
+              </span>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[11px] font-bold text-slate-700 uppercase">
+                    Round 3 (AI vs Real) Questions:
+                  </label>
+                  <span className="text-[11px] font-bold font-mono text-indigo-600">
+                    Max Available: {maxR3Available}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={Math.max(1, maxR3Available)}
+                  value={r3Limit}
+                  onChange={(e) => setR3Limit(Math.max(1, Math.min(maxR3Available || 1, Number(e.target.value))))}
+                  className="input-field text-sm font-bold"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[11px] font-bold text-slate-700 uppercase">
+                    Round 4 (Data Anomaly) Questions:
+                  </label>
+                  <span className="text-[11px] font-bold font-mono text-indigo-600">
+                    Max Available: {maxR4Available}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={Math.max(1, maxR4Available)}
+                  value={r4Limit}
+                  onChange={(e) => setR4Limit(Math.max(1, Math.min(maxR4Available || 1, Number(e.target.value))))}
+                  className="input-field text-sm font-bold"
+                />
+              </div>
+            </div>
+
             <button type="submit" disabled={!selectedEventId || isSubmitting} className="btn-primary w-full gap-2 disabled:opacity-50">
               <Plus className="w-4 h-4" /> {isSubmitting ? 'Generating...' : 'Generate Slot Code'}
             </button>
@@ -167,122 +264,177 @@ export const SlotManager: React.FC = () => {
           </h3>
 
           {loading ? (
-            <div className="py-8 text-center text-slate-400">Loading slots...</div>
+            <div className="py-8 text-center text-slate-400 font-bold">Loading slots...</div>
           ) : slots.length === 0 ? (
             <div className="card text-center py-10 text-slate-400">
               No slots created yet for this event. Generate your first slot above.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {slots.map((slot) => (
-                <div key={slot.id} className="card relative flex flex-col justify-between border-slate-200">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Slot #{slot.slot_number}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
-                            slot.status === 'in_progress'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse'
-                              : slot.status === 'open'
-                              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                              : slot.status === 'completed'
-                              ? 'bg-slate-100 text-slate-600 border-slate-200'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                          }`}
-                        >
-                          {slot.status}
+              {slots.map((slot) => {
+                const isEditing = editingSlotId === slot.id;
+                const r3Count = slot.r3_question_limit || 1;
+                const r4Count = slot.r4_question_limit || 1;
+
+                return (
+                  <div key={slot.id} className="card relative flex flex-col justify-between border-slate-200">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Slot #{slot.slot_number}
                         </span>
-                        <button
-                          onClick={() => handleDeleteSlot(slot.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
-                          title="Delete Slot"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Join Code Box */}
-                    <div className="bg-slate-900 rounded-xl p-4 text-center my-3 border border-slate-800 relative group">
-                      <div className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">
-                        Team Join Code
-                      </div>
-                      <div className="font-mono text-3xl font-black text-amber-400 tracking-widest">
-                        {slot.slot_code}
-                      </div>
-                      <button
-                        onClick={() => copyToClipboard(slot.slot_code)}
-                        className="absolute right-3 top-3 p-1.5 text-slate-400 hover:text-white transition-colors"
-                        title="Copy Code"
-                      >
-                        {copiedCode === slot.slot_code ? (
-                          <span className="text-xs text-emerald-400 font-bold">Copied!</span>
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs font-medium text-slate-600 mb-4">
-                      <span>Current Round:</span>
-                      <span className="font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                        Round {slot.current_round}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="space-y-2 pt-3 border-t border-slate-100">
-                    <div className="grid grid-cols-2 gap-2">
-                      {slot.status === 'scheduled' && (
-                        <button
-                          onClick={() => handleUpdateStatus(slot.id, 'open')}
-                          className="btn-secondary text-xs py-2 justify-center col-span-2"
-                        >
-                          Open Registration
-                        </button>
-                      )}
-
-                      {slot.status === 'open' && (
-                        <button
-                          onClick={() => handleUpdateStatus(slot.id, 'in_progress', 1)}
-                          className="btn-primary text-xs py-2 justify-center col-span-2 gap-1"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" /> Start Live Round 1
-                        </button>
-                      )}
-
-                      {slot.status === 'in_progress' && (
-                        <>
-                          <button
-                            onClick={() =>
-                              handleUpdateStatus(slot.id, 'in_progress', Math.min(5, slot.current_round + 1))
-                            }
-                            className="btn-secondary text-xs py-2 justify-center"
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
+                              slot.status === 'in_progress'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse'
+                                : slot.status === 'open'
+                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                : slot.status === 'completed'
+                                ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
                           >
-                            Advance Round ({slot.current_round}/5)
+                            {slot.status}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteSlot(slot.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            title="Delete Slot"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
+                        </div>
+                      </div>
+
+                      {/* Join Code Box */}
+                      <div className="bg-slate-900 rounded-xl p-4 text-center my-3 border border-slate-800 relative group">
+                        <div className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">
+                          Team Join Code
+                        </div>
+                        <div className="font-mono text-3xl font-black text-amber-400 tracking-widest">
+                          {slot.slot_code}
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(slot.slot_code)}
+                          className="absolute right-3 top-3 p-1.5 text-slate-400 hover:text-white transition-colors"
+                          title="Copy Code"
+                        >
+                          {copiedCode === slot.slot_code ? (
+                            <span className="text-xs text-emerald-400 font-bold">Copied!</span>
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Slot Question Limits Settings Box */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-extrabold uppercase text-slate-700 flex items-center gap-1">
+                            <Settings className="w-3 h-3 text-indigo-600" /> Question Limits:
+                          </span>
+                          {!isEditing ? (
+                            <button
+                              onClick={() => {
+                                setEditingSlotId(slot.id);
+                                setEditR3(r3Count);
+                                setEditR4(r4Count);
+                              }}
+                              className="text-[11px] font-bold text-indigo-600 hover:underline"
+                            >
+                              Edit Limits
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleSaveSlotLimits(slot.id)}
+                              className="text-[11px] font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
+                            >
+                              <Save className="w-3 h-3" /> Save
+                            </button>
+                          )}
+                        </div>
+
+                        {!isEditing ? (
+                          <div className="grid grid-cols-2 gap-2 text-xs font-mono font-bold">
+                            <div className="bg-white p-2 rounded border border-slate-200 text-slate-700">
+                              <span className="text-[10px] text-slate-400 block font-sans">Round 3 AI/Real:</span>
+                              <span className="text-indigo-600 font-black">{r3Count}</span> / {maxR3Available}
+                            </div>
+                            <div className="bg-white p-2 rounded border border-slate-200 text-slate-700">
+                              <span className="text-[10px] text-slate-400 block font-sans">Round 4 Data:</span>
+                              <span className="text-indigo-600 font-black">{r4Count}</span> / {maxR4Available}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-500 block mb-0.5">R3 Questions:</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={Math.max(1, maxR3Available)}
+                                value={editR3}
+                                onChange={(e) => setEditR3(Math.max(1, Math.min(maxR3Available || 1, Number(e.target.value))))}
+                                className="input-field text-xs py-1 text-center font-bold"
+                              />
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-500 block mb-0.5">R4 Questions:</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={Math.max(1, maxR4Available)}
+                                value={editR4}
+                                onChange={(e) => setEditR4(Math.max(1, Math.min(maxR4Available || 1, Number(e.target.value))))}
+                                className="input-field text-xs py-1 text-center font-bold"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions - Advance Round button completely removed */}
+                    <div className="space-y-2 pt-3 border-t border-slate-100">
+                      <div className="grid grid-cols-1 gap-2">
+                        {slot.status === 'scheduled' && (
+                          <button
+                            onClick={() => handleUpdateStatus(slot.id, 'open')}
+                            className="btn-secondary text-xs py-2 justify-center w-full"
+                          >
+                            Open Registration
+                          </button>
+                        )}
+
+                        {slot.status === 'open' && (
+                          <button
+                            onClick={() => handleUpdateStatus(slot.id, 'in_progress', 1)}
+                            className="btn-primary text-xs py-2 justify-center w-full gap-1"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" /> Start Live Round 1
+                          </button>
+                        )}
+
+                        {slot.status === 'in_progress' && (
                           <button
                             onClick={() => handleUpdateStatus(slot.id, 'completed')}
-                            className="btn-danger text-xs py-2 justify-center"
+                            className="btn-danger text-xs py-2 justify-center w-full"
                           >
                             Close Slot
                           </button>
-                        </>
-                      )}
+                        )}
 
-                      {slot.status === 'completed' && (
-                        <span className="text-xs font-semibold text-slate-400 text-center col-span-2 py-1">
-                          Slot Finalized
-                        </span>
-                      )}
+                        {slot.status === 'completed' && (
+                          <span className="text-xs font-semibold text-slate-400 text-center py-1">
+                            Slot Finalized
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
