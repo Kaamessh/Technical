@@ -2,7 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../../lib/apiClient';
 import { resolveImageUrl } from '../../lib/imageUtils';
-import { Plus, Trash2, HelpCircle, Image, Sparkles, Database, KeyRound, CheckCircle } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  HelpCircle,
+  Image,
+  Sparkles,
+  Database,
+  KeyRound,
+  CheckCircle,
+  Shuffle,
+  Edit2,
+  RotateCcw,
+  CheckCircle2,
+  Save,
+} from 'lucide-react';
 
 export const QuestionBank: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -10,7 +24,7 @@ export const QuestionBank: React.FC = () => {
 
   const [events, setEvents] = useState<any[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>(eventIdParam || '');
-  const [activeTab, setActiveTab] = useState<number>(1);
+  const [activeTab, setActiveTab] = useState<number>(4); // Default to Round 4 tab
 
   // Round 1 States
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
@@ -41,11 +55,23 @@ export const QuestionBank: React.FC = () => {
   const [r3ImageB, setR3ImageB] = useState('');
   const [r3CorrectSide, setR3CorrectSide] = useState<'A' | 'B'>('A');
 
-  // Round 4 States
+  // Round 4 States (Dynamic Interactive Table Creator)
   const [dataQuestions, setDataQuestions] = useState<any[]>([]);
-  const [r4Question, setR4Question] = useState('');
-  const [r4Options, setR4Options] = useState(['', '', '', '']);
-  const [r4CorrectIndex, setR4CorrectIndex] = useState(0);
+  const [editingR4Id, setEditingR4Id] = useState<string | null>(null);
+  const [r4TaskInstruction, setR4TaskInstruction] = useState('Task: Identify the anomalous row(s) and explain the anomaly type.');
+  const [r4Headers, setR4Headers] = useState<string[]>([
+    'Borrow ID', 'Student', 'Book', 'Category', 'Issue Date', 'Return Date'
+  ]);
+  const [r4Rows, setR4Rows] = useState<string[][]>([
+    ['L001', 'Rahul', 'Python', 'Programming', 'Aug 01', 'Aug 07'],
+    ['L002', 'Priya', 'DBMS', 'Programming', 'Aug 02', 'Aug 09'],
+    ['L003', 'Arjun', 'AI', 'Programming', 'Aug 03', 'Aug 10'],
+    ['L004', 'Meena', 'Networks', 'Programming', 'Aug 04', 'Aug 12'],
+    ['L005', 'Kiran', 'Organic Chemistry', 'Literature', 'Aug 05', 'Aug 12'],
+    ['L006', 'Divya', 'Python', 'Programming', 'Aug 06', 'Aug 13'],
+    ['L007', 'Sanjay', 'DBMS', 'Programming', 'Aug 07', 'Aug 14'],
+  ]);
+  const [r4CorrectRowIndex, setR4CorrectRowIndex] = useState<number>(4);
 
   // Round 5 States
   const [decodePool, setDecodePool] = useState<any[]>([]);
@@ -103,36 +129,23 @@ export const QuestionBank: React.FC = () => {
     }
   };
 
-  const handleDeleteR1 = async (id: string) => {
-    await apiClient.delete(`/questions/round1/${id}`);
-    loadContent();
-  };
-
   // Round 2 Handlers
-  const handleAddR2 = async (e: React.FormEvent) => {
+  const handleSaveR2 = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanReal = r2RealSteps.filter((s) => s.trim().length > 0);
-    const cleanDist = r2Distractors.filter((s) => s.trim().length > 0);
-
-    if (cleanReal.length === 0) {
-      alert('Please add at least 1 real workflow step in the correct order.');
-      return;
-    }
-
-    const payloadSteps = [...cleanReal, '__DISTRACTOR__', ...cleanDist];
-
     try {
+      const formattedReal = r2RealSteps.map((s) => s.trim()).filter(Boolean);
+      const formattedDistractors = r2Distractors.map((s) => s.trim()).filter(Boolean);
+      const combinedUrls = [...formattedReal, '__DISTRACTOR__', ...formattedDistractors];
+
       await apiClient.post('/workflow-challenges', {
         event_id: selectedEventId,
         title: r2Title,
-        image_urls: payloadSteps,
+        image_urls: combinedUrls,
       });
-      setR2Title('Find the data life cycle workflow');
-      setR2RealSteps(['📸 Capture', '💾 Store', '⚙️ Process', '📊 Use', '📦 Archive', '🗑️ Destroy']);
-      setR2Distractors(['🖨️ Printing on paper', '🎤 Singing a song', '🎨 Painting a wall']);
+      alert('Workflow challenge saved successfully!');
       loadContent();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to add workflow challenge');
+      alert(err.response?.data?.error || 'Failed to save workflow challenge');
     }
   };
 
@@ -150,26 +163,115 @@ export const QuestionBank: React.FC = () => {
       setR3ImageB('');
       loadContent();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to add AI or Real challenge');
+      alert(err.response?.data?.error || 'Failed to add AI challenge');
     }
   };
 
-  // Round 4 Handlers
-  const handleAddR4 = async (e: React.FormEvent) => {
+  // Round 4 Table Handlers
+  const handleAddR4Column = () => {
+    setR4Headers((prev) => [...prev, `Column ${prev.length + 1}`]);
+    setR4Rows((prev) => prev.map((row) => [...row, '-']));
+  };
+
+  const handleRemoveR4Column = (colIdx: number) => {
+    if (r4Headers.length <= 1) return;
+    setR4Headers((prev) => prev.filter((_, i) => i !== colIdx));
+    setR4Rows((prev) => prev.map((row) => row.filter((_, i) => i !== colIdx)));
+  };
+
+  const handleAddR4Row = () => {
+    const newRow = r4Headers.map((_, i) => (i === 0 ? `ID00${r4Rows.length + 1}` : 'Sample Data'));
+    setR4Rows((prev) => [...prev, newRow]);
+  };
+
+  const handleRemoveR4Row = (rowIdx: number) => {
+    if (r4Rows.length <= 1) return;
+    setR4Rows((prev) => prev.filter((_, i) => i !== rowIdx));
+    if (r4CorrectRowIndex >= r4Rows.length - 1) {
+      setR4CorrectRowIndex(Math.max(0, r4Rows.length - 2));
+    }
+  };
+
+  const handleShuffleR4Rows = () => {
+    if (r4Rows.length <= 1) return;
+    const indexed = r4Rows.map((row, idx) => ({ row, isCorrect: idx === r4CorrectRowIndex }));
+    const shuffled = [...indexed].sort(() => 0.5 - Math.random());
+    const newRows = shuffled.map((item) => item.row);
+    const newCorrectIdx = shuffled.findIndex((item) => item.isCorrect);
+    setR4Rows(newRows);
+    setR4CorrectRowIndex(newCorrectIdx);
+  };
+
+  const handleLoadLibraryTemplate = () => {
+    setR4TaskInstruction('Task: Identify the anomalous row(s) and explain the anomaly type.');
+    setR4Headers(['Borrow ID', 'Student', 'Book', 'Category', 'Issue Date', 'Return Date']);
+    setR4Rows([
+      ['L001', 'Rahul', 'Python', 'Programming', 'Aug 01', 'Aug 07'],
+      ['L002', 'Priya', 'DBMS', 'Programming', 'Aug 02', 'Aug 09'],
+      ['L003', 'Arjun', 'AI', 'Programming', 'Aug 03', 'Aug 10'],
+      ['L004', 'Meena', 'Networks', 'Programming', 'Aug 04', 'Aug 12'],
+      ['L005', 'Kiran', 'Organic Chemistry', 'Literature', 'Aug 05', 'Aug 12'],
+      ['L006', 'Divya', 'Python', 'Programming', 'Aug 06', 'Aug 13'],
+      ['L007', 'Sanjay', 'DBMS', 'Programming', 'Aug 07', 'Aug 14'],
+    ]);
+    setR4CorrectRowIndex(4);
+    setEditingR4Id(null);
+  };
+
+  const handleLoadShipmentTemplate = () => {
+    setR4TaskInstruction('Spot the Anomaly — Find the incorrect data in the shipments below.');
+    setR4Headers(['Shipment ID', 'Customer Name', 'Country', 'Currency', 'City', 'Continent', 'Order Date', 'Delivery Date']);
+    setR4Rows([
+      ['SHP001', 'Rahul Kumar', 'USA', 'Euro (€)', 'New York', 'North America', '2018', '2022'],
+      ['SHP002', 'Priya Sharma', 'Japan', 'Yen (¥)', 'Tokyo', 'Asia', '2028', '2026'],
+      ['SHP003', 'Sneha Rao', 'France', 'Euro (€)', 'Paris', 'Europe', '2015', '2029'],
+      ['SHP004', 'Sanjay Roy', 'Italy', 'Euro (€)', 'Rome', 'Asia', '2026', '2025'],
+      ['SHP005', 'Kavyu Menon', 'USA', 'US Dollar ($)', 'New York', 'South America', '2013', '2017'],
+      ['SHP006', 'Deepak Joshi', 'Japan', 'Yen (¥)', 'Tokyo', 'Europe', '2019', '2027'],
+    ]);
+    setR4CorrectRowIndex(1);
+    setEditingR4Id(null);
+  };
+
+  const handleAddOrUpdateR4 = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.post('/data-challenge', {
+      const payload = {
         event_id: selectedEventId,
-        question_text: r4Question,
-        options: r4Options,
-        correct_index: r4CorrectIndex,
-      });
-      setR4Question('');
-      setR4Options(['', '', '', '']);
+        question_text: r4TaskInstruction,
+        options: {
+          headers: r4Headers,
+          rows: r4Rows,
+        },
+        correct_index: r4CorrectRowIndex,
+      };
+
+      if (editingR4Id) {
+        await apiClient.put(`/data-challenge/${editingR4Id}`, payload);
+        alert('Data table question updated successfully!');
+      } else {
+        await apiClient.post('/data-challenge', payload);
+        alert('New Data table question added successfully!');
+      }
+
+      setEditingR4Id(null);
       loadContent();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to add data challenge');
+      alert(err.response?.data?.error || 'Failed to save data challenge question');
     }
+  };
+
+  const handleEditR4 = (q: any) => {
+    setEditingR4Id(q.id);
+    setR4TaskInstruction(q.question_text || '');
+    if (q.options && typeof q.options === 'object' && !Array.isArray(q.options) && q.options.headers) {
+      setR4Headers(q.options.headers);
+      setR4Rows(q.options.rows || []);
+    } else if (Array.isArray(q.options)) {
+      setR4Headers(['Option Text']);
+      setR4Rows(q.options.map((opt: string) => [opt]));
+    }
+    setR4CorrectRowIndex(q.correct_index !== undefined ? q.correct_index : 0);
   };
 
   // Round 5 Handlers
@@ -234,7 +336,7 @@ export const QuestionBank: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Challenge Content Authoring</h1>
-          <p className="text-sm text-slate-500 mt-1">Configure questions, image sequences, AI pairs, and target decode words across all 5 rounds.</p>
+          <p className="text-sm text-slate-500 mt-1">Configure questions, image sequences, AI pairs, interactive data tables, and target decode words.</p>
         </div>
 
         {events.length > 0 && (
@@ -261,7 +363,7 @@ export const QuestionBank: React.FC = () => {
           { id: 1, label: 'Round 1: Live Quiz', icon: HelpCircle },
           { id: 2, label: 'Round 2: Workflow', icon: Image },
           { id: 3, label: 'Round 3: AI or Real', icon: Sparkles },
-          { id: 4, label: 'Round 4: Spot Data', icon: Database },
+          { id: 4, label: 'Round 4: Spot Data Anomaly', icon: Database },
           { id: 5, label: 'Round 5: Decode Words', icon: KeyRound },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -338,231 +440,150 @@ export const QuestionBank: React.FC = () => {
           </div>
 
           <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-base font-extrabold text-slate-900">Quiz Question Bank ({quizQuestions.length})</h3>
-            {quizQuestions.length === 0 ? (
-              <div className="card text-center py-8 text-slate-400">No questions added yet.</div>
-            ) : (
-              quizQuestions.map((q, i) => (
-                <div key={q.id} className="card relative p-4 flex items-start justify-between border-slate-200">
-                  <div>
-                    <div className="text-xs font-mono font-bold text-indigo-600 mb-1">Question #{i + 1}</div>
-                    <div className="font-bold text-slate-900 text-sm mb-2">{q.question_text}</div>
-                    <div className="grid grid-cols-2 gap-2 text-xs font-medium">
-                      {(q.options as string[]).map((opt, idx) => (
-                        <div
-                          key={idx}
-                          className={`p-2 rounded border ${
-                            idx === q.correct_index
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
-                              : 'bg-slate-50 text-slate-700 border-slate-100'
-                          }`}
-                        >
-                          {String.fromCharCode(65 + idx)}. {opt}
-                        </div>
-                      ))}
-                    </div>
+            <h3 className="text-base font-extrabold text-slate-900">Quiz Questions ({quizQuestions.length})</h3>
+            {quizQuestions.map((q, i) => (
+              <div key={q.id} className="card p-4 border-slate-200 flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="font-bold text-slate-900 text-sm mb-2">{q.question_text}</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs font-medium">
+                    {(q.options as string[]).map((opt, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded border ${
+                          idx === q.correct_index
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
+                            : 'bg-slate-50 text-slate-700 border-slate-100'
+                        }`}
+                      >
+                        {String.fromCharCode(65 + idx)}. {opt}
+                      </div>
+                    ))}
                   </div>
-
-                  <button
-                    onClick={() => handleDeleteR1(q.id)}
-                    className="p-2 text-slate-400 hover:text-rose-600 rounded-lg"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* TAB 2: WORKFLOW */}
+      {/* TAB 2: ROUND 2 WORKFLOW */}
       {activeTab === 2 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="card h-fit">
-            <h3 className="text-base font-extrabold text-slate-900 mb-4">Add Workflow Sequence Puzzle</h3>
-            <form onSubmit={handleAddR2} className="space-y-5">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="card p-6 border-indigo-100">
+            <h3 className="text-lg font-extrabold text-slate-900 mb-1">Round 2: Workflow Step Sequence Authoring</h3>
+            <p className="text-xs text-slate-500 mb-6">Create the correct ordered workflow sequence and distractor items for teams to arrange.</p>
+
+            <form onSubmit={handleSaveR2} className="space-y-6">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Question / Challenge Title
+                  Challenge Title / Instruction
                 </label>
                 <input
                   type="text"
                   required
                   value={r2Title}
                   onChange={(e) => setR2Title(e.target.value)}
-                  placeholder="e.g. Find the data life cycle workflow"
-                  className="input-field text-sm"
+                  className="input-field text-sm font-semibold"
                 />
               </div>
 
-              {/* REAL STEPS (IN EXACT ORDER) */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-emerald-700">
-                    Real Flow Steps ({r2RealSteps.length} Steps in Order)
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-extrabold uppercase tracking-wider text-emerald-700">
+                    Real Sequence Steps (In Correct Order):
                   </label>
                   <button
                     type="button"
-                    onClick={() => setR2RealSteps([...r2RealSteps, ''])}
-                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"
+                    onClick={() => setR2RealSteps([...r2RealSteps, '📌 New Step'])}
+                    className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
                   >
-                    <Plus className="w-3 h-3" /> Add Step
+                    + Add Step
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-500">
-                  Enter the real steps with emojis in the exact flow order members must arrange.
-                </p>
-
-                {r2RealSteps.map((step, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-bold text-slate-400 w-12 text-right">#{idx + 1}</span>
-                    <input
-                      type="text"
-                      required
-                      value={step}
-                      onChange={(e) => {
-                        const copy = [...r2RealSteps];
-                        copy[idx] = e.target.value;
-                        setR2RealSteps(copy);
-                      }}
-                      placeholder={`e.g. 📸 Step ${idx + 1}`}
-                      className="input-field text-xs py-2 flex-1 border-emerald-200 bg-emerald-50/20 font-semibold"
-                    />
-                    {r2RealSteps.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => setR2RealSteps(r2RealSteps.filter((_, i) => i !== idx))}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded"
-                        title="Remove step"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                <div className="space-y-2">
+                  {r2RealSteps.map((step, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center font-mono">
+                        {idx + 1}
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        value={step}
+                        onChange={(e) => {
+                          const copy = [...r2RealSteps];
+                          copy[idx] = e.target.value;
+                          setR2RealSteps(copy);
+                        }}
+                        className="input-field text-xs py-2 font-semibold"
+                      />
+                      {r2RealSteps.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => setR2RealSteps(r2RealSteps.filter((_, i) => i !== idx))}
+                          className="p-1 text-slate-400 hover:text-rose-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* IRRELEVANT / DISTRACTOR STEPS */}
-              <div className="space-y-2 pt-2 border-t border-slate-200">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-rose-700">
-                    Irrelevant / Distractor Steps ({r2Distractors.length} Extras)
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-extrabold uppercase tracking-wider text-rose-700">
+                    Distractor Steps (Irrelevant Options to Filter Out):
                   </label>
                   <button
                     type="button"
-                    onClick={() => setR2Distractors([...r2Distractors, ''])}
-                    className="text-[11px] font-bold text-rose-700 hover:text-rose-800 flex items-center gap-1 bg-rose-50 px-2 py-0.5 rounded border border-rose-200"
+                    onClick={() => setR2Distractors([...r2Distractors, '❌ Distractor Option'])}
+                    className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
                   >
-                    <Plus className="w-3 h-3" /> Add Distractor
+                    + Add Distractor
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-500">
-                  Extra wrong steps with emojis that will be scattered to distract members.
-                </p>
-
-                {r2Distractors.map((dis, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-bold text-rose-400 w-12 text-right">Ext</span>
-                    <input
-                      type="text"
-                      value={dis}
-                      onChange={(e) => {
-                        const copy = [...r2Distractors];
-                        copy[idx] = e.target.value;
-                        setR2Distractors(copy);
-                      }}
-                      placeholder={`e.g. 🎨 Wrong step ${idx + 1}`}
-                      className="input-field text-xs py-2 flex-1 border-rose-200 bg-rose-50/20 font-medium"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setR2Distractors(r2Distractors.filter((_, i) => i !== idx))}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded"
-                      title="Remove distractor"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                <div className="space-y-2">
+                  {r2Distractors.map((dis, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-800 text-xs font-bold flex items-center justify-center font-mono">
+                        ❌
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        value={dis}
+                        onChange={(e) => {
+                          const copy = [...r2Distractors];
+                          copy[idx] = e.target.value;
+                          setR2Distractors(copy);
+                        }}
+                        className="input-field text-xs py-2 text-rose-950 font-medium"
+                      />
+                      {r2Distractors.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setR2Distractors(r2Distractors.filter((_, i) => i !== idx))}
+                          className="p-1 text-slate-400 hover:text-rose-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <button type="submit" className="btn-primary w-full text-xs py-3 font-extrabold">
-                Save Workflow ({r2RealSteps.length} Real + {r2Distractors.length} Distractors = {r2RealSteps.length + r2Distractors.length} Total Cards)
+              <button type="submit" className="btn-primary w-full py-3 font-bold text-sm">
+                Save Workflow Challenge
               </button>
             </form>
-          </div>
-
-          {/* WORKFLOW CHALLENGES LISTING */}
-          <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-base font-extrabold text-slate-900">Configured Workflows ({workflowChallenges.length})</h3>
-            {workflowChallenges.map((wf) => {
-              const rawUrls = ((wf.image_urls as string[]) || []).map((s) =>
-                String(s)
-                  .replace(/^Images\//i, '')
-                  .replace(/^%2FImages%2F/i, '')
-                  .replace(/^Images%2F/i, '')
-              );
-              const distIdx = rawUrls.findIndex((s) => s.includes('__DISTRACTOR__'));
-              const realList = distIdx !== -1 ? rawUrls.slice(0, distIdx) : rawUrls;
-              const distList = distIdx !== -1 ? rawUrls.slice(distIdx + 1) : [];
-
-              return (
-                <div key={wf.id} className="card p-5 border-slate-200 flex items-start justify-between gap-4 shadow-sm">
-                  <div className="flex-1 space-y-3">
-                    <div>
-                      <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                        Question / Puzzle Prompt
-                      </span>
-                      <h4 className="font-extrabold text-base text-slate-900 mt-1">{wf.title}</h4>
-                    </div>
-
-                    {/* Real Flow Steps */}
-                    <div>
-                      <span className="text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider block mb-1.5">
-                        ✔ Real Flow Order ({realList.length} Steps):
-                      </span>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {realList.map((step, idx) => (
-                          <span key={idx} className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-2xs">
-                            <span className="text-[10px] text-emerald-600 font-mono">#{idx + 1}</span> {step}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Distractor Steps */}
-                    {distList.length > 0 && (
-                      <div>
-                        <span className="text-[11px] font-extrabold text-rose-700 uppercase tracking-wider block mb-1.5">
-                          ❌ Distractor Steps ({distList.length} Extras):
-                        </span>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {distList.map((dis, idx) => (
-                            <span key={idx} className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg bg-rose-50 text-rose-900 border border-rose-200 shadow-2xs">
-                              {dis}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => handleDeleteR2(wf.id)}
-                    className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
-                    title="Delete workflow challenge from DB"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              );
-            })}
           </div>
         </div>
       )}
 
-      {/* TAB 3: AI OR REAL */}
+      {/* TAB 3: ROUND 3 AI VS REAL */}
       {activeTab === 3 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="card h-fit">
@@ -581,21 +602,6 @@ export const QuestionBank: React.FC = () => {
                     placeholder="e.g. Images/1a.webp or http://..."
                     className="input-field text-xs py-2"
                   />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                          if (ev.target?.result) setR3ImageA(ev.target.result as string);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                  />
                 </div>
               </div>
 
@@ -611,21 +617,6 @@ export const QuestionBank: React.FC = () => {
                     onChange={(e) => setR3ImageB(e.target.value)}
                     placeholder="e.g. Images/1b.webp or http://..."
                     className="input-field text-xs py-2"
-                  />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                          if (ev.target?.result) setR3ImageB(ev.target.result as string);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                    className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                   />
                 </div>
               </div>
@@ -673,7 +664,6 @@ export const QuestionBank: React.FC = () => {
                 <button
                   onClick={() => handleDeleteR3(ch.id)}
                   className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
-                  title="Delete AI challenge from DB"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -683,91 +673,302 @@ export const QuestionBank: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: SPOT THE DATA */}
+      {/* TAB 4: SPOT THE DATA ANOMALY (DYNAMIC INTERACTIVE TABLE CREATOR) */}
       {activeTab === 4 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="card h-fit">
-            <h3 className="text-base font-extrabold text-slate-900 mb-4">Add Data Challenge Question</h3>
-            <form onSubmit={handleAddR4} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Question Text
-                </label>
-                <textarea
-                  rows={2}
-                  required
-                  value={r4Question}
-                  onChange={(e) => setR4Question(e.target.value)}
-                  placeholder="Enter data anomaly question..."
-                  className="input-field text-sm"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Options & Correct Answer
-                </label>
-                {r4Options.map((opt, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="r4Correct"
-                      checked={r4CorrectIndex === idx}
-                      onChange={() => setR4CorrectIndex(idx)}
-                      className="text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                    />
-                    <input
-                      type="text"
-                      required
-                      value={opt}
-                      onChange={(e) => {
-                        const copy = [...r4Options];
-                        copy[idx] = e.target.value;
-                        setR4Options(copy);
-                      }}
-                      placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                      className="input-field text-xs py-2"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <button type="submit" className="btn-primary w-full text-xs py-2.5 font-bold">
-                Save Data Question
+        <div className="space-y-8">
+          {/* Quick Presets Banner */}
+          <div className="bg-indigo-900 text-white p-6 rounded-2xl border border-indigo-800 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+            <div>
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider font-mono">
+                INTERACTIVE DATA TABLE CREATOR
+              </span>
+              <h2 className="text-xl font-extrabold text-white mt-1">Design Custom Data Anomaly Tables</h2>
+              <p className="text-xs text-indigo-200 mt-1 max-w-xl">
+                Build table columns, rows, and set the correct anomalous row. You can also shuffle rows dynamically!
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleLoadLibraryTemplate}
+                className="px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-xs transition-all border border-indigo-500 shadow-xs"
+              >
+                📚 Load Library Borrow Template
               </button>
-            </form>
+              <button
+                type="button"
+                onClick={handleLoadShipmentTemplate}
+                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all border border-amber-400 shadow-xs"
+              >
+                🚢 Load Shipment Template
+              </button>
+            </div>
           </div>
 
-          <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-base font-extrabold text-slate-900">Data Questions ({dataQuestions.length})</h3>
-            {dataQuestions.map((q, i) => (
-              <div key={q.id} className="card p-4 border-slate-200 flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="font-bold text-slate-900 text-sm mb-2">{q.question_text}</div>
-                  <div className="grid grid-cols-2 gap-2 text-xs font-medium">
-                    {(q.options as string[]).map((opt, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-2 rounded border ${
-                          idx === q.correct_index
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
-                            : 'bg-slate-50 text-slate-700 border-slate-100'
-                        }`}
-                      >
-                        {String.fromCharCode(65 + idx)}. {opt}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Table Builder Form */}
+            <div className="lg:col-span-2 card p-6 border-indigo-100 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                  <Database className="w-5 h-5 text-indigo-600" />
+                  {editingR4Id ? 'Edit Data Table Question' : 'Create New Data Table Question'}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleShuffleR4Rows}
+                    className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  >
+                    <Shuffle className="w-3.5 h-3.5 text-amber-600" /> Shuffle Rows
+                  </button>
+                  {editingR4Id && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingR4Id(null)}
+                      className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <form onSubmit={handleAddOrUpdateR4} className="space-y-6">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Task Instruction / Question Prompt
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    value={r4TaskInstruction}
+                    onChange={(e) => setR4TaskInstruction(e.target.value)}
+                    placeholder="e.g. Task: Identify the anomalous row(s) and explain the anomaly type."
+                    className="input-field text-sm font-semibold"
+                  />
+                </div>
+
+                {/* Columns Controls */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-extrabold uppercase tracking-wider text-indigo-900">
+                      Table Column Headers ({r4Headers.length}):
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddR4Column}
+                      className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                    >
+                      + Add Column
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {r4Headers.map((h, colIdx) => (
+                      <div key={colIdx} className="flex items-center gap-1 bg-slate-50 p-1.5 rounded border border-slate-200">
+                        <input
+                          type="text"
+                          required
+                          value={h}
+                          onChange={(e) => {
+                            const copy = [...r4Headers];
+                            copy[colIdx] = e.target.value;
+                            setR4Headers(copy);
+                          }}
+                          className="input-field text-xs py-1 px-2 font-mono font-bold"
+                        />
+                        {r4Headers.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveR4Column(colIdx)}
+                            className="p-1 text-slate-400 hover:text-rose-600"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDeleteR4(q.id)}
-                  className="p-2 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
-                  title="Delete data question from DB"
-                >
-                  <Trash2 className="w-4 h-4" />
+
+                {/* Rows & Cells Builder */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-extrabold uppercase tracking-wider text-emerald-800">
+                      Data Table Rows ({r4Rows.length}) & Mark Correct Anomalous Row:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddR4Row}
+                      className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                    >
+                      + Add Row
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-2xs bg-slate-900 text-white">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-950 text-slate-300 font-bold border-b border-slate-800 uppercase tracking-wider">
+                          <th className="py-2.5 px-3 w-12 text-center">Correct</th>
+                          <th className="py-2.5 px-3 w-12 text-center">#</th>
+                          {r4Headers.map((h, i) => (
+                            <th key={i} className="py-2.5 px-3 border-l border-slate-800 font-mono">
+                              {h}
+                            </th>
+                          ))}
+                          <th className="py-2.5 px-3 w-12 text-center border-l border-slate-800">Del</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r4Rows.map((row, rowIdx) => {
+                          const isCorrect = rowIdx === r4CorrectRowIndex;
+                          return (
+                            <tr
+                              key={rowIdx}
+                              className={`border-b border-slate-800 transition-colors ${
+                                isCorrect ? 'bg-amber-500/20 text-white font-bold' : 'hover:bg-slate-800/60'
+                              }`}
+                            >
+                              <td className="py-2 px-3 text-center">
+                                <input
+                                  type="radio"
+                                  name="correctRowRadio"
+                                  checked={isCorrect}
+                                  onChange={() => setR4CorrectRowIndex(rowIdx)}
+                                  className="w-4 h-4 text-amber-500 focus:ring-amber-400 cursor-pointer"
+                                  title="Mark as Anomalous Row"
+                                />
+                              </td>
+                              <td className="py-2 px-3 text-center font-mono font-bold text-slate-400">
+                                {rowIdx + 1}
+                              </td>
+                              {row.map((cell, colIdx) => (
+                                <td key={colIdx} className="py-1 px-2 border-l border-slate-800">
+                                  <input
+                                    type="text"
+                                    value={cell}
+                                    onChange={(e) => {
+                                      const copyRows = [...r4Rows];
+                                      copyRows[rowIdx][colIdx] = e.target.value;
+                                      setR4Rows(copyRows);
+                                    }}
+                                    className="w-full bg-slate-950/80 text-white text-xs px-2 py-1.5 rounded border border-slate-700 font-medium focus:border-amber-400 focus:outline-none"
+                                  />
+                                </td>
+                              ))}
+                              <td className="py-2 px-2 text-center border-l border-slate-800">
+                                {r4Rows.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveR4Row(rowIdx)}
+                                    className="p-1 text-slate-400 hover:text-rose-400"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="mt-2 text-xs font-bold text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200 flex items-center justify-between">
+                    <span>
+                      ✔ Currently marked Anomalous Row: <strong>Row {r4CorrectRowIndex + 1}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleShuffleR4Rows}
+                      className="text-indigo-600 hover:underline font-bold flex items-center gap-1"
+                    >
+                      <Shuffle className="w-3.5 h-3.5" /> Shuffle Row Order
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" className="btn-primary w-full py-3 text-sm font-extrabold gap-2">
+                  <Save className="w-4 h-4" /> {editingR4Id ? 'Update Data Table Question' : 'Save Data Table Question'}
                 </button>
-              </div>
-            ))}
+              </form>
+            </div>
+
+            {/* Saved Questions List */}
+            <div className="space-y-4">
+              <h3 className="text-base font-extrabold text-slate-900">Configured Table Questions ({dataQuestions.length})</h3>
+
+              {dataQuestions.length === 0 ? (
+                <div className="card text-center py-10 text-slate-400">
+                  No table questions created yet. Use the builder on the left to add one!
+                </div>
+              ) : (
+                dataQuestions.map((q) => {
+                  const opts = q.options;
+                  const isObject = opts && typeof opts === 'object' && !Array.isArray(opts) && opts.headers;
+                  const headers: string[] = isObject ? opts.headers : ['Option Text'];
+                  const rows: string[][] = isObject ? opts.rows : (opts || []).map((o: string) => [o]);
+
+                  return (
+                    <div key={q.id} className="card p-4 border-slate-200 space-y-3 relative group">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-extrabold text-slate-900 text-sm leading-snug">{q.question_text}</div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleEditR4(q)}
+                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Edit Table Question"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteR4(q.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete Table Question"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto border border-slate-200 rounded-lg bg-slate-900 text-white text-[11px]">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-950 text-slate-300 font-bold border-b border-slate-800">
+                              <th className="p-1.5 text-center">#</th>
+                              {headers.map((h, i) => (
+                                <th key={i} className="p-1.5 border-l border-slate-800 font-mono">
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((r, rIdx) => {
+                              const isCorrect = rIdx === q.correct_index;
+                              return (
+                                <tr key={rIdx} className={`border-b border-slate-800 ${isCorrect ? 'bg-amber-500/20 text-amber-300 font-extrabold' : ''}`}>
+                                  <td className="p-1.5 text-center font-mono">{rIdx + 1}</td>
+                                  {r.map((c, cIdx) => (
+                                    <td key={cIdx} className="p-1.5 border-l border-slate-800">
+                                      {c}
+                                    </td>
+                                  ))}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 inline-flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Anomalous Row: Row {q.correct_index + 1}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -790,7 +991,6 @@ export const QuestionBank: React.FC = () => {
                   placeholder="e.g. 1111 1111"
                   className="input-field text-sm font-mono"
                 />
-                <p className="text-[10px] text-slate-500 mt-1">Separate 4-bit nibbles with a space. E.g. "1111 1111" = 1515</p>
               </div>
 
               <div>
@@ -815,53 +1015,21 @@ export const QuestionBank: React.FC = () => {
 
           <div className="lg:col-span-2 space-y-4">
             <h3 className="text-base font-extrabold text-slate-900">Decode Word Pool ({decodePool.length})</h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Words from this pool will be automatically assigned to teams when they join a slot. 
-              The system auto-calculates the letter sequence and final password.
-            </p>
-            
-            <div className="overflow-x-auto card p-0 border-slate-200">
-              <table className="w-full text-left text-xs font-medium border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 uppercase text-slate-500 font-bold">
-                    <th className="py-3 px-4">Binary Clue</th>
-                    <th className="py-3 px-4">Target Word</th>
-                    <th className="py-3 px-4">Letter Numbers (8)</th>
-                    <th className="py-3 px-4">Expected Password</th>
-                    <th className="py-3 px-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-mono">
-                  {decodePool.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-400 font-sans">
-                        No words in the pool yet. Add some on the left.
-                      </td>
-                    </tr>
-                  ) : (
-                    decodePool.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50">
-                        <td className="py-3 px-4 text-amber-600 font-bold">{item.binary_clue}</td>
-                        <td className="py-3 px-4 text-indigo-600 font-bold">{item.target_word}</td>
-                        <td className="py-3 px-4 text-emerald-600 font-bold">
-                          [{item.letter_numbers.join(', ')}]
-                        </td>
-                        <td className="py-3 px-4 text-slate-800 font-extrabold">
-                          {item.final_password}
-                        </td>
-                        <td className="py-3 px-4">
-                          <button
-                            onClick={() => handleDeleteR5(item.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {decodePool.map((w) => (
+                <div key={w.id} className="card p-4 border-slate-200 flex items-center justify-between">
+                  <div>
+                    <div className="font-mono text-sm font-extrabold text-indigo-600">{w.target_word}</div>
+                    <div className="font-mono text-xs text-slate-500 mt-0.5">Binary: {w.binary_clue}</div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteR5(w.id)}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>

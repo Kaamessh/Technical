@@ -146,15 +146,45 @@ async function seed() {
     await supabase.from('ai_or_real_challenges').insert(aiOrRealSample);
     console.log('✅ Round 3 AI vs Real Challenge Seeded.');
 
-    // 7. Seed Round 4 Data Challenge
-    const dataSample = {
-      event_id: eventId,
-      question_text: 'Spot the anomaly: In a server cluster, continuous CPU utilization jumps to 100% every hour at 00:00:00 without increased incoming web requests. What is the most likely cause?',
-      options: ['DDoS Attack', 'Scheduled Cron Job / Backup Script', 'Hardware Memory Leak', 'DNS Resolution Timeout'],
-      correct_index: 1,
-    };
-    await supabase.from('data_challenge_questions').insert(dataSample);
-    console.log('✅ Round 4 Data Challenge Question Seeded.');
+    // 7. Seed Round 4 Data Challenge Questions (Interactive Table Format)
+    const dataSamples = [
+      {
+        event_id: eventId,
+        question_text: 'Task: Identify the anomalous row(s) and explain the anomaly type.',
+        options: {
+          headers: ['Borrow ID', 'Student', 'Book', 'Category', 'Issue Date', 'Return Date'],
+          rows: [
+            ['L001', 'Rahul', 'Python', 'Programming', 'Aug 01', 'Aug 07'],
+            ['L002', 'Priya', 'DBMS', 'Programming', 'Aug 02', 'Aug 09'],
+            ['L003', 'Arjun', 'AI', 'Programming', 'Aug 03', 'Aug 10'],
+            ['L004', 'Meena', 'Networks', 'Programming', 'Aug 04', 'Aug 12'],
+            ['L005', 'Kiran', 'Organic Chemistry', 'Literature', 'Aug 05', 'Aug 12'],
+            ['L006', 'Divya', 'Python', 'Programming', 'Aug 06', 'Aug 13'],
+            ['L007', 'Sanjay', 'DBMS', 'Programming', 'Aug 07', 'Aug 14'],
+          ],
+        },
+        correct_index: 4,
+      },
+      {
+        event_id: eventId,
+        question_text: 'Spot the Anomaly — Find the incorrect data in the shipments below.',
+        options: {
+          headers: ['Shipment ID', 'Customer Name', 'Country', 'Currency', 'City', 'Continent', 'Order Date', 'Delivery Date'],
+          rows: [
+            ['SHP001', 'Rahul Kumar', 'USA', 'Euro (€)', 'New York', 'North America', '2018', '2022'],
+            ['SHP002', 'Priya Sharma', 'Japan', 'Yen (¥)', 'Tokyo', 'Asia', '2028', '2026'],
+            ['SHP003', 'Sneha Rao', 'France', 'Euro (€)', 'Paris', 'Europe', '2015', '2029'],
+            ['SHP004', 'Sanjay Roy', 'Italy', 'Euro (€)', 'Rome', 'Asia', '2026', '2025'],
+            ['SHP005', 'Kavyu Menon', 'USA', 'US Dollar ($)', 'New York', 'South America', '2013', '2017'],
+            ['SHP006', 'Deepak Joshi', 'Japan', 'Yen (¥)', 'Tokyo', 'Europe', '2019', '2027'],
+          ],
+        },
+        correct_index: 1,
+      },
+    ];
+
+    await supabase.from('data_challenge_questions').insert(dataSamples);
+    console.log('✅ Round 4 Interactive Data Challenge Questions Seeded.');
   }
 
   console.log('🚀 Seed Completed Successfully!');
