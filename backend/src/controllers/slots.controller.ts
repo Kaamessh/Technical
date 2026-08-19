@@ -202,7 +202,11 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
 
     if (error || !slot) return res.status(404).json({ error: 'Slot not found' });
 
+    // Restrict editing question limits to BEFORE event starts (scheduled or open status)
     if (r3_question_limit !== undefined || r4_question_limit !== undefined) {
+      if (slot.status === 'in_progress' || slot.status === 'completed') {
+        return res.status(400).json({ error: 'Question limits cannot be edited once the event has started.' });
+      }
       const currentLimits = await getSlotLimits(id);
       const newR3 = r3_question_limit !== undefined ? Number(r3_question_limit) : currentLimits.r3_limit;
       const newR4 = r4_question_limit !== undefined ? Number(r4_question_limit) : currentLimits.r4_limit;
@@ -259,17 +263,21 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
       }
     }
 
-    const { data: updatedSlot, error: updateErr } = await supabase
-      .from('slots')
-      .update({
-        ...(status !== undefined && { status }),
-        ...(current_round !== undefined && { current_round }),
-      })
-      .eq('id', id)
-      .select()
-      .single();
+    let updatedSlot = slot;
+    if (status !== undefined || current_round !== undefined) {
+      const { data: resSlot, error: updateErr } = await supabase
+        .from('slots')
+        .update({
+          ...(status !== undefined && { status }),
+          ...(current_round !== undefined && { current_round }),
+        })
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (updateErr) return res.status(500).json({ error: updateErr.message });
+      if (updateErr) return res.status(500).json({ error: updateErr.message });
+      updatedSlot = resSlot;
+    }
 
     const finalLimits = await getSlotLimits(id);
 
