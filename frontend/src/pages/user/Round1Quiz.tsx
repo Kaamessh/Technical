@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { apiClient } from '../../lib/apiClient';
@@ -32,6 +32,7 @@ export const Round1Quiz: React.FC = () => {
   // 3-2-1 Admin Countdown Overlay State
   const [startCountdown, setStartCountdown] = useState<number | null>(null);
   const [waitingForNext, setWaitingForNext] = useState(false);
+  const hasTriggeredCountdownRef = useRef(false);
 
   const fetchCurrentQuestion = async () => {
     try {
@@ -49,7 +50,12 @@ export const Round1Quiz: React.FC = () => {
       if (res.data.waiting_for_next) {
         setWaitingForNext(true);
         setQuestion(null);
-      } else {
+      } else if (res.data.question) {
+        // If transitioning from waiting lobby to live question, trigger 3-2-1 countdown!
+        if (!hasTriggeredCountdownRef.current && startCountdown === null) {
+          hasTriggeredCountdownRef.current = true;
+          setStartCountdown(3);
+        }
         setWaitingForNext(false);
         setQueueId(res.data.queue_id);
         setSequenceOrder(res.data.sequence_order);
@@ -73,7 +79,7 @@ export const Round1Quiz: React.FC = () => {
       const timer = setTimeout(() => {
         setStartCountdown(null);
         fetchCurrentQuestion();
-      }, 800);
+      }, 700);
       return () => clearTimeout(timer);
     }
 
@@ -96,15 +102,19 @@ export const Round1Quiz: React.FC = () => {
       .on('broadcast', { event: 'round:start_countdown' }, (payload) => {
         console.log('Realtime Round Start Countdown:', payload);
         const count = payload.payload?.countdown_seconds || 3;
+        hasTriggeredCountdownRef.current = true;
         setStartCountdown(count);
         setFeedback({ message: '🚀 EVENT ORGANIZER STARTED ROUND 1 LIVE QUIZ!', type: 'info' });
+        fetchCurrentQuestion();
       })
       .on('broadcast', { event: 'question:live' }, (payload) => {
         console.log('Realtime Question Live:', payload);
-        if (startCountdown === null) {
+        if (startCountdown === null && !hasTriggeredCountdownRef.current) {
+          hasTriggeredCountdownRef.current = true;
           setStartCountdown(3);
         }
         setFeedback({ message: '⚡ NEW LIVE QUESTION BROADCAST!', type: 'info' });
+        fetchCurrentQuestion();
       })
       .on('broadcast', { event: 'question:won' }, (payload) => {
         if (payload.payload?.won_by_team_id !== user.id) {
@@ -117,10 +127,10 @@ export const Round1Quiz: React.FC = () => {
       })
       .subscribe();
 
-    // Active 1.5s auto-sync polling loop to eliminate any manual refresh requirement
+    // Active 1.0s auto-sync polling loop to eliminate any manual refresh requirement
     const pollInterval = setInterval(() => {
       fetchCurrentQuestion();
-    }, 1500);
+    }, 1000);
 
     return () => {
       supabaseRealtime.removeChannel(channel);

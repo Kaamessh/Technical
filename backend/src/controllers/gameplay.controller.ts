@@ -905,23 +905,68 @@ export async function getRound6Cards(req: AuthenticatedTeamRequest, res: Respons
   }
 }
 
-// ROUND 6: Atomically claim a problem statement card
+// ROUND 6: Fast In-Memory Atomic Lock for Round 6 card claims (Sub-millisecond resolution)
+interface ClaimLockEntry {
+  teamId: string;
+  teamName: string;
+  claimedAt: number;
+}
+const activeSlotCardLocks = new Map<string, ClaimLockEntry>();
+const activeSlotTeamClaimed = new Set<string>();
+
+// ROUND 6: Claim Problem Statement Card (Atomic First-Click Win)
 export async function claimRound6Card(req: AuthenticatedTeamRequest, res: Response) {
+  const teamId = req.team?.id;
+  const slotId = req.team?.slot_id;
+  const eventId = req.team?.event_id;
+  const { card_id, card_index } = req.body;
+
+  if (!slotId || !eventId || !teamId) {
+    return res.status(400).json({ error: 'Team session invalid' });
+  }
+
+  if (card_index === undefined && !card_id) {
+    return res.status(400).json({ error: 'card_id or card_index required' });
+  }
+
+  const indexNum = Number(card_index);
+  const cardLockKey = `${slotId}:card:${indexNum}`;
+  const problemLockKey = card_id ? `${slotId}:prob:${card_id}` : null;
+  const teamLockKey = `${slotId}:team:${teamId}`;
+
+  // 1. SUB-MILLISECOND ATOMIC IN-MEMORY LOCK CHECK
+  if (activeSlotTeamClaimed.has(teamLockKey)) {
+    return res.status(400).json({ error: 'Your team has already selected a problem statement!' });
+  }
+
+  if (activeSlotCardLocks.has(cardLockKey)) {
+    const winner = activeSlotCardLocks.get(cardLockKey);
+    return res.status(409).json({
+      error: `⚠️ Card #${indexNum + 1} was just claimed by ${winner?.teamName || 'another team'} milliseconds before you! Please choose an available card.`,
+      claimed_by: winner?.teamName,
+    });
+  }
+
+  if (problemLockKey && activeSlotCardLocks.has(problemLockKey)) {
+    const winner = activeSlotCardLocks.get(problemLockKey);
+    return res.status(409).json({
+      error: `⚠️ This problem statement was just claimed by ${winner?.teamName || 'another team'} milliseconds before you! Please choose an available card.`,
+      claimed_by: winner?.teamName,
+    });
+  }
+
+  // Atomically claim in-memory lock (First request wins!)
+  const claimLockObj: ClaimLockEntry = {
+    teamId,
+    teamName: req.team?.team_name || 'Team',
+    claimedAt: Date.now(),
+  };
+  activeSlotCardLocks.set(cardLockKey, claimLockObj);
+  if (problemLockKey) activeSlotCardLocks.set(problemLockKey, claimLockObj);
+  activeSlotTeamClaimed.add(teamLockKey);
+
   try {
-    const teamId = req.team?.id;
-    const slotId = req.team?.slot_id;
-    const eventId = req.team?.event_id;
-    const { card_id, card_index } = req.body;
-
-    if (!slotId || !eventId || !teamId) {
-      return res.status(400).json({ error: 'Team session invalid' });
-    }
-
-    if (card_index === undefined && !card_id) {
-      return res.status(400).json({ error: 'card_id or card_index required' });
-    }
-
-    // Fetch problem statements pool and claims row
+    // 2. Fetch problem statements pool and claims row from DB
     const [{ data: psRow }, { data: claimsRow }] = await Promise.all([
       supabase
         .from('quiz_questions')
@@ -938,40 +983,47 @@ export async function claimRound6Card(req: AuthenticatedTeamRequest, res: Respon
     ]);
 
     const allStatements: any[] = psRow && Array.isArray(psRow.options) ? psRow.options : [];
-    const indexNum = Number(card_index);
     const targetProblem = card_id
       ? allStatements.find((ps) => ps.id === card_id)
       : allStatements[indexNum];
 
     if (!targetProblem) {
+      activeSlotCardLocks.delete(cardLockKey);
+      if (problemLockKey) activeSlotCardLocks.delete(problemLockKey);
+      activeSlotTeamClaimed.delete(teamLockKey);
       return res.status(404).json({ error: 'Problem statement not found.' });
     }
 
     let allClaims: any[] = claimsRow && Array.isArray(claimsRow.options) ? [...claimsRow.options] : [];
     const slotClaims = allClaims.filter((c: any) => c.slot_id === slotId);
 
-    // Check if current team has already claimed
+    // Check if current team has already claimed in DB
     const existingTeamClaim = slotClaims.find((c: any) => c.team_id === teamId);
     if (existingTeamClaim) {
-      const claimedPs = allStatements.find((p) => p.id === existingTeamClaim.problem_id) || allStatements[existingTeamClaim.card_index];
+      const claimedPs =
+        allStatements.find((p) => p.id === existingTeamClaim.problem_id) ||
+        allStatements[existingTeamClaim.card_index];
       return res.status(400).json({
         error: 'Your team has already selected a problem statement!',
         problem: claimedPs,
       });
     }
 
-    // Atomic First-Claim check: Check if card is already claimed in this slot
+    // Secondary DB First-Claim check
     const isAlreadyClaimed = slotClaims.some(
       (c: any) => c.problem_id === targetProblem.id || c.card_index === indexNum
     );
 
     if (isAlreadyClaimed) {
+      activeSlotCardLocks.delete(cardLockKey);
+      if (problemLockKey) activeSlotCardLocks.delete(problemLockKey);
+      activeSlotTeamClaimed.delete(teamLockKey);
       return res.status(409).json({
-        error: '⚠️ This problem statement card was just claimed by another team! Please choose an available card.',
+        error: `⚠️ Card #${indexNum + 1} was just claimed by another team! Please choose an available card.`,
       });
     }
 
-    // Create new claim
+    // 3. Persist new claim to permanent DB
     const newClaim = {
       slot_id: slotId,
       team_id: teamId,
@@ -1003,7 +1055,7 @@ export async function claimRound6Card(req: AuthenticatedTeamRequest, res: Respon
       completed_at: new Date().toISOString(),
     });
 
-    // Realtime Broadcast to slot
+    // 4. Ultra-Fast Realtime Broadcast to slot
     broadcastToSlot(slotId, 'problem:claimed', {
       slot_id: slotId,
       card_id: targetProblem.id,
@@ -1024,6 +1076,9 @@ export async function claimRound6Card(req: AuthenticatedTeamRequest, res: Respon
       },
     });
   } catch (error: any) {
+    activeSlotCardLocks.delete(cardLockKey);
+    if (problemLockKey) activeSlotCardLocks.delete(problemLockKey);
+    activeSlotTeamClaimed.delete(teamLockKey);
     return res.status(500).json({ error: error.message });
   }
 }

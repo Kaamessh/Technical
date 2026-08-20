@@ -94,23 +94,26 @@ export const Round6ProblemSelection: React.FC = () => {
           );
 
           if (data.team_id !== user.id) {
+            if (claimingIndex === data.card_index) {
+              setClaimingIndex(null);
+            }
             setFeedback({
-              message: `Card #${data.card_number || data.card_index + 1} was just claimed by ${data.team_name || 'another team'}.`,
-              type: 'info',
+              message: `⚠️ Card #${data.card_number || data.card_index + 1} was just claimed by ${data.team_name || 'another team'}! Please select an available card.`,
+              type: 'error',
             });
           }
         }
       })
       .subscribe();
 
-    // Auto-poll sync every 2.5s as fallback
-    const interval = setInterval(fetchCards, 2500);
+    // Active auto-poll sync every 1.2s as ultra-fast fallback
+    const interval = setInterval(fetchCards, 1200);
 
     return () => {
       supabaseRealtime.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [user?.slot_id, user?.id]);
+  }, [user?.slot_id, user?.id, claimingIndex]);
 
   const handleClaimCard = async (card: CardItem) => {
     if (hasClaimed || card.claimed || claimingIndex !== null) return;
