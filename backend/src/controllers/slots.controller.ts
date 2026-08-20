@@ -8,7 +8,7 @@ import { setSlotLimits, getSlotLimits, getAllSlotLimits } from '../services/slot
 
 export async function createSlot(req: AuthenticatedAdminRequest, res: Response) {
   try {
-    const { event_id, slot_number, custom_code, r3_question_limit, r4_question_limit } = req.body;
+    const { event_id, slot_number, custom_code, r3_question_limit, r4_question_limit, r6_question_limit } = req.body;
     if (!event_id || !slot_number) {
       return res.status(400).json({ error: 'event_id and slot_number required' });
     }
@@ -33,12 +33,14 @@ export async function createSlot(req: AuthenticatedAdminRequest, res: Response) 
 
     const r3Limit = Number(r3_question_limit) || 1;
     const r4Limit = Number(r4_question_limit) || 1;
-    await setSlotLimits(slot.id, r3Limit, r4Limit, event_id);
+    const r6Limit = Number(r6_question_limit) || 6;
+    await setSlotLimits(slot.id, r3Limit, r4Limit, event_id, r6Limit);
 
     return res.status(201).json({
       ...slot,
       r3_question_limit: r3Limit,
       r4_question_limit: r4Limit,
+      r6_question_limit: r6Limit,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -63,6 +65,7 @@ export async function getSlotsByEvent(req: any, res: Response) {
       ...s,
       r3_question_limit: limits[s.id]?.r3_limit || 1,
       r4_question_limit: limits[s.id]?.r4_limit || 1,
+      r6_question_limit: limits[s.id]?.r6_limit || 6,
     }));
 
     return res.json(slotsWithLimits);
@@ -84,6 +87,7 @@ export async function getSlotStatus(req: any, res: Response) {
       ...slot,
       r3_question_limit: limits.r3_limit,
       r4_question_limit: limits.r4_limit,
+      r6_question_limit: limits.r6_limit,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -192,7 +196,7 @@ export async function joinSlot(req: AuthenticatedTeamRequest, res: Response) {
 export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Response) {
   try {
     const { id } = req.params;
-    const { status, current_round, r3_question_limit, r4_question_limit } = req.body;
+    const { status, current_round, r3_question_limit, r4_question_limit, r6_question_limit } = req.body;
 
     const { data: slot, error } = await supabase
       .from('slots')
@@ -203,14 +207,15 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
     if (error || !slot) return res.status(404).json({ error: 'Slot not found' });
 
     // Restrict editing question limits to BEFORE event starts (scheduled or open status)
-    if (r3_question_limit !== undefined || r4_question_limit !== undefined) {
+    if (r3_question_limit !== undefined || r4_question_limit !== undefined || r6_question_limit !== undefined) {
       if (slot.status === 'in_progress' || slot.status === 'completed') {
         return res.status(400).json({ error: 'Question limits cannot be edited once the event has started.' });
       }
       const currentLimits = await getSlotLimits(id);
       const newR3 = r3_question_limit !== undefined ? Number(r3_question_limit) : currentLimits.r3_limit;
       const newR4 = r4_question_limit !== undefined ? Number(r4_question_limit) : currentLimits.r4_limit;
-      await setSlotLimits(id, newR3, newR4, slot.event_id);
+      const newR6 = r6_question_limit !== undefined ? Number(r6_question_limit) : currentLimits.r6_limit;
+      await setSlotLimits(id, newR3, newR4, slot.event_id, newR6);
     }
 
     // If starting Round 1 (transitioning to in_progress or starting queue), populate queue

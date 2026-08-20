@@ -4,9 +4,10 @@ export interface SlotQuestionLimit {
   slot_id: string;
   r3_limit: number;
   r4_limit: number;
+  r6_limit?: number;
 }
 
-export async function getSlotLimits(slotId: string): Promise<{ r3_limit: number; r4_limit: number }> {
+export async function getSlotLimits(slotId: string): Promise<{ r3_limit: number; r4_limit: number; r6_limit: number }> {
   try {
     const { data: row } = await supabase
       .from('quiz_questions')
@@ -21,15 +22,16 @@ export async function getSlotLimits(slotId: string): Promise<{ r3_limit: number;
         return {
           r3_limit: Math.max(1, Number(match.r3_limit) || 1),
           r4_limit: Math.max(1, Number(match.r4_limit) || 1),
+          r6_limit: Math.max(1, Number(match.r6_limit) || 6),
         };
       }
     }
   } catch (err) {}
 
-  return { r3_limit: 1, r4_limit: 1 };
+  return { r3_limit: 1, r4_limit: 1, r6_limit: 6 };
 }
 
-export async function getAllSlotLimits(): Promise<Record<string, { r3_limit: number; r4_limit: number }>> {
+export async function getAllSlotLimits(): Promise<Record<string, { r3_limit: number; r4_limit: number; r6_limit: number }>> {
   try {
     const { data: row } = await supabase
       .from('quiz_questions')
@@ -39,12 +41,13 @@ export async function getAllSlotLimits(): Promise<Record<string, { r3_limit: num
       .single();
 
     if (row && Array.isArray(row.options)) {
-      const result: Record<string, { r3_limit: number; r4_limit: number }> = {};
+      const result: Record<string, { r3_limit: number; r4_limit: number; r6_limit: number }> = {};
       (row.options as SlotQuestionLimit[]).forEach((o) => {
         if (o.slot_id) {
           result[o.slot_id] = {
             r3_limit: Math.max(1, Number(o.r3_limit) || 1),
             r4_limit: Math.max(1, Number(o.r4_limit) || 1),
+            r6_limit: Math.max(1, Number(o.r6_limit) || 6),
           };
         }
       });
@@ -54,7 +57,7 @@ export async function getAllSlotLimits(): Promise<Record<string, { r3_limit: num
   return {};
 }
 
-export async function setSlotLimits(slotId: string, r3Limit: number, r4Limit: number, eventId: string): Promise<void> {
+export async function setSlotLimits(slotId: string, r3Limit: number, r4Limit: number, eventId: string, r6Limit?: number): Promise<void> {
   try {
     const { data: existing } = await supabase
       .from('quiz_questions')
@@ -69,7 +72,16 @@ export async function setSlotLimits(slotId: string, r3Limit: number, r4Limit: nu
     }
 
     const index = options.findIndex((o) => o.slot_id === slotId);
-    const newEntry = { slot_id: slotId, r3_limit: Math.max(1, r3Limit), r4_limit: Math.max(1, r4Limit) };
+    const existingLimit = index !== -1 ? options[index] : null;
+    const finalR6 = r6Limit !== undefined ? Math.max(1, r6Limit) : (existingLimit?.r6_limit || 6);
+
+    const newEntry: SlotQuestionLimit = {
+      slot_id: slotId,
+      r3_limit: Math.max(1, r3Limit),
+      r4_limit: Math.max(1, r4Limit),
+      r6_limit: finalR6,
+    };
+
     if (index !== -1) {
       options[index] = newEntry;
     } else {

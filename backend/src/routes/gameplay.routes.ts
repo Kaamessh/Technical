@@ -10,6 +10,8 @@ import {
   submitRound4Answer,
   getRound5Clue,
   verifyRound5Password,
+  getRound6Cards,
+  claimRound6Card,
 } from '../controllers/gameplay.controller';
 import { authTeamMiddleware } from '../middlewares/authTeam.middleware';
 
@@ -32,5 +34,8 @@ router.post('/round4/answer', submitRound4Answer);
 
 router.get('/round5/clue', getRound5Clue);
 router.post('/round5/verify-password', verifyRound5Password);
+
+router.get('/round6/cards', getRound6Cards);
+router.post('/round6/claim', claimRound6Card);
 
 export default router;

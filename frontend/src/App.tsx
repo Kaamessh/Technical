@@ -20,6 +20,7 @@ import { Round2Workflow } from './pages/user/Round2Workflow';
 import { Round3AiOrReal } from './pages/user/Round3AiOrReal';
 import { Round4DataChallenge } from './pages/user/Round4DataChallenge';
 import { Round5Password } from './pages/user/Round5Password';
+import { Round6ProblemSelection } from './pages/user/Round6ProblemSelection';
 import { EventCompleted } from './pages/user/Completed';
 import { TeamLeaderboardPage } from './pages/user/TeamLeaderboardPage';
 
@@ -163,6 +164,14 @@ export const AppRoutes: React.FC = () => {
             element={
               <RequireAuth role="team">
                 <Round5Password />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/team/round-6"
+            element={
+              <RequireAuth role="team">
+                <Round6ProblemSelection />
               </RequireAuth>
             }
           />

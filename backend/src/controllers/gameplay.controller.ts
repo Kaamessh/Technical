@@ -598,8 +598,18 @@ export async function getRound4Question(req: AuthenticatedTeamRequest, res: Resp
     ]);
 
     if (progress && progress.status === 'completed') {
-      const decodeHint = await getTeamDecodeHintPair(teamId!, 4);
-      return res.json({ completed: true, message: 'Round 4 completed!', decode_hint: decodeHint });
+      const { data: decodeData } = await supabase
+        .from('team_decode_words')
+        .select('letter_numbers, binary_clue')
+        .eq('team_id', teamId)
+        .single();
+      const letters = Array.isArray(decodeData?.letter_numbers) ? (decodeData.letter_numbers as number[]).slice(6, 8) : null;
+      return res.json({
+        completed: true,
+        message: 'Round 4 completed!',
+        decode_hint: letters,
+        binary_clue: decodeData?.binary_clue || null,
+      });
     }
 
     const completedQuestionIds = ledgerEntries
@@ -610,8 +620,18 @@ export async function getRound4Question(req: AuthenticatedTeamRequest, res: Resp
       : [];
 
     if (completedQuestionIds.length >= r4Limit) {
-      const decodeHint = await getTeamDecodeHintPair(teamId!, 4);
-      return res.json({ completed: true, message: 'Round 4 completed!', decode_hint: decodeHint });
+      const { data: decodeData } = await supabase
+        .from('team_decode_words')
+        .select('letter_numbers, binary_clue')
+        .eq('team_id', teamId)
+        .single();
+      const letters = Array.isArray(decodeData?.letter_numbers) ? (decodeData.letter_numbers as number[]).slice(6, 8) : null;
+      return res.json({
+        completed: true,
+        message: 'Round 4 completed!',
+        decode_hint: letters,
+        binary_clue: decodeData?.binary_clue || null,
+      });
     }
 
     if (!questions || questions.length === 0) {
@@ -621,8 +641,18 @@ export async function getRound4Question(req: AuthenticatedTeamRequest, res: Resp
     const unattempted = questions.filter((q) => !completedQuestionIds.includes(q.id));
 
     if (unattempted.length === 0) {
-      const decodeHint = await getTeamDecodeHintPair(teamId!, 4);
-      return res.json({ completed: true, message: 'Round 4 completed!', decode_hint: decodeHint });
+      const { data: decodeData } = await supabase
+        .from('team_decode_words')
+        .select('letter_numbers, binary_clue')
+        .eq('team_id', teamId)
+        .single();
+      const letters = Array.isArray(decodeData?.letter_numbers) ? (decodeData.letter_numbers as number[]).slice(6, 8) : null;
+      return res.json({
+        completed: true,
+        message: 'Round 4 completed!',
+        decode_hint: letters,
+        binary_clue: decodeData?.binary_clue || null,
+      });
     }
 
     const shuffledUnattempted = [...unattempted].sort(() => 0.5 - Math.random());
@@ -680,7 +710,7 @@ export async function submitRound4Answer(req: AuthenticatedTeamRequest, res: Res
           reason: `round4_attempt: ${question_id}`,
         });
 
-        const slotLimits = slotId ? await getSlotLimits(slotId) : { r3_limit: 1, r4_limit: 1 };
+        const slotLimits = slotId ? await getSlotLimits(slotId) : { r3_limit: 1, r4_limit: 1, r6_limit: 6 };
         const r4Limit = slotLimits.r4_limit || getRoundQuestionLimit(4);
 
         const [{ data: ledgerEntries }, { data: allQuestions }] = await Promise.all([
@@ -764,7 +794,232 @@ export async function verifyRound5Password(req: AuthenticatedTeamRequest, res: R
     return res.json({
       correct: true,
       points: result.points,
-      message: '🎉 CONGRATULATIONS! EVENT FINALE DECODED SUCCESSFULLY!',
+      next_round: 6,
+      message: '🎉 CONGRATULATIONS! PASSWORD DECODED! PROCEEDING TO PROBLEM STATEMENT SELECTION.',
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+// ROUND 6: Get problem statement selection cards
+export async function getRound6Cards(req: AuthenticatedTeamRequest, res: Response) {
+  try {
+    const teamId = req.team?.id;
+    const slotId = req.team?.slot_id;
+    const eventId = req.team?.event_id;
+
+    if (!slotId || !eventId) {
+      return res.status(400).json({ error: 'Team slot or event not found' });
+    }
+
+    // Parallel fetch slot limits, problem statements pool, and existing claims
+    const [limits, { data: psRow }, { data: claimsRow }] = await Promise.all([
+      getSlotLimits(slotId),
+      supabase
+        .from('quiz_questions')
+        .select('options')
+        .eq('event_id', eventId)
+        .eq('question_text', '__PROBLEM_STATEMENTS__')
+        .single(),
+      supabase
+        .from('quiz_questions')
+        .select('options')
+        .eq('question_text', '__SLOT_PROBLEM_CLAIMS__')
+        .limit(1)
+        .single(),
+    ]);
+
+    const allStatements: any[] = psRow && Array.isArray(psRow.options) ? psRow.options : [];
+    const r6Limit = limits.r6_limit || 6;
+    const activeStatements = allStatements.slice(0, r6Limit);
+
+    const allClaims: any[] = claimsRow && Array.isArray(claimsRow.options) ? claimsRow.options : [];
+    const slotClaims = allClaims.filter((c: any) => c.slot_id === slotId);
+
+    const myClaim = slotClaims.find((c: any) => c.team_id === teamId);
+
+    // Build redacted card representations (no problem text sent to client for unclaimed/other teams' cards)
+    const cards = activeStatements.map((ps: any, idx: number) => {
+      const claim = slotClaims.find((c: any) => c.problem_id === ps.id || c.card_index === idx);
+      const isClaimedByMe = myClaim && (myClaim.problem_id === ps.id || myClaim.card_index === idx);
+
+      if (isClaimedByMe) {
+        return {
+          id: ps.id,
+          card_index: idx,
+          card_number: idx + 1,
+          claimed: true,
+          is_claimed_by_you: true,
+          team_name: req.team?.team_name,
+          title: ps.title,
+          description: ps.description,
+          category: ps.category || 'General',
+        };
+      } else if (claim) {
+        return {
+          id: ps.id,
+          card_index: idx,
+          card_number: idx + 1,
+          claimed: true,
+          is_claimed_by_you: false,
+          team_name: claim.team_name || 'Another Team',
+          // Problem title & description are intentionally NOT sent
+        };
+      } else {
+        return {
+          id: ps.id,
+          card_index: idx,
+          card_number: idx + 1,
+          claimed: false,
+          is_claimed_by_you: false,
+          // Problem title & description are intentionally NOT sent
+        };
+      }
+    });
+
+    let myProblem = null;
+    if (myClaim) {
+      const found = activeStatements.find((p) => p.id === myClaim.problem_id) || activeStatements[myClaim.card_index];
+      if (found) {
+        myProblem = {
+          id: found.id,
+          card_number: (myClaim.card_index ?? 0) + 1,
+          title: found.title,
+          description: found.description,
+          category: found.category || 'General',
+        };
+      }
+    }
+
+    return res.json({
+      cards,
+      has_claimed: !!myClaim,
+      my_problem: myProblem,
+      total_cards: activeStatements.length,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+// ROUND 6: Atomically claim a problem statement card
+export async function claimRound6Card(req: AuthenticatedTeamRequest, res: Response) {
+  try {
+    const teamId = req.team?.id;
+    const slotId = req.team?.slot_id;
+    const eventId = req.team?.event_id;
+    const { card_id, card_index } = req.body;
+
+    if (!slotId || !eventId || !teamId) {
+      return res.status(400).json({ error: 'Team session invalid' });
+    }
+
+    if (card_index === undefined && !card_id) {
+      return res.status(400).json({ error: 'card_id or card_index required' });
+    }
+
+    // Fetch problem statements pool and claims row
+    const [{ data: psRow }, { data: claimsRow }] = await Promise.all([
+      supabase
+        .from('quiz_questions')
+        .select('options')
+        .eq('event_id', eventId)
+        .eq('question_text', '__PROBLEM_STATEMENTS__')
+        .single(),
+      supabase
+        .from('quiz_questions')
+        .select('id, options')
+        .eq('question_text', '__SLOT_PROBLEM_CLAIMS__')
+        .limit(1)
+        .single(),
+    ]);
+
+    const allStatements: any[] = psRow && Array.isArray(psRow.options) ? psRow.options : [];
+    const indexNum = Number(card_index);
+    const targetProblem = card_id
+      ? allStatements.find((ps) => ps.id === card_id)
+      : allStatements[indexNum];
+
+    if (!targetProblem) {
+      return res.status(404).json({ error: 'Problem statement not found.' });
+    }
+
+    let allClaims: any[] = claimsRow && Array.isArray(claimsRow.options) ? [...claimsRow.options] : [];
+    const slotClaims = allClaims.filter((c: any) => c.slot_id === slotId);
+
+    // Check if current team has already claimed
+    const existingTeamClaim = slotClaims.find((c: any) => c.team_id === teamId);
+    if (existingTeamClaim) {
+      const claimedPs = allStatements.find((p) => p.id === existingTeamClaim.problem_id) || allStatements[existingTeamClaim.card_index];
+      return res.status(400).json({
+        error: 'Your team has already selected a problem statement!',
+        problem: claimedPs,
+      });
+    }
+
+    // Atomic First-Claim check: Check if card is already claimed in this slot
+    const isAlreadyClaimed = slotClaims.some(
+      (c: any) => c.problem_id === targetProblem.id || c.card_index === indexNum
+    );
+
+    if (isAlreadyClaimed) {
+      return res.status(409).json({
+        error: '⚠️ This problem statement card was just claimed by another team! Please choose an available card.',
+      });
+    }
+
+    // Create new claim
+    const newClaim = {
+      slot_id: slotId,
+      team_id: teamId,
+      team_name: req.team?.team_name || 'Team',
+      problem_id: targetProblem.id,
+      card_index: indexNum,
+      claimed_at: new Date().toISOString(),
+    };
+
+    allClaims.push(newClaim);
+
+    if (claimsRow) {
+      await supabase.from('quiz_questions').update({ options: allClaims }).eq('id', claimsRow.id);
+    } else {
+      await supabase.from('quiz_questions').insert({
+        event_id: eventId,
+        question_text: '__SLOT_PROBLEM_CLAIMS__',
+        options: allClaims,
+        correct_index: 0,
+      });
+    }
+
+    // Mark Round 6 as completed for this team (0 points awarded)
+    await supabase.from('team_round_progress').upsert({
+      team_id: teamId,
+      round_number: 6,
+      status: 'completed',
+      score: 0,
+      completed_at: new Date().toISOString(),
+    });
+
+    // Realtime Broadcast to slot
+    broadcastToSlot(slotId, 'problem:claimed', {
+      slot_id: slotId,
+      card_id: targetProblem.id,
+      card_index: indexNum,
+      card_number: indexNum + 1,
+      team_id: teamId,
+      team_name: req.team?.team_name || 'Team',
+    });
+
+    return res.json({
+      success: true,
+      problem: {
+        id: targetProblem.id,
+        card_number: indexNum + 1,
+        title: targetProblem.title,
+        description: targetProblem.description,
+        category: targetProblem.category || 'General',
+      },
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

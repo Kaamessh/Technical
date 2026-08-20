@@ -4,6 +4,7 @@ import { apiClient } from '../lib/apiClient';
 interface UserProfile {
   id: string;
   name: string;
+  team_name?: string;
   email?: string;
   role: 'admin' | 'team';
   event_id?: string;

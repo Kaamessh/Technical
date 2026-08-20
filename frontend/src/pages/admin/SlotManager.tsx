@@ -16,18 +16,24 @@ export const SlotManager: React.FC = () => {
   const [slotNumber, setSlotNumber] = useState<number | string>(1);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  // Per-Slot Question Limits for Round 3 & Round 4 (Max available)
+  // Per-Slot Question Limits for Round 3, Round 4, and Round 6 (Max available)
   const [maxR3Available, setMaxR3Available] = useState<number>(0);
   const [maxR4Available, setMaxR4Available] = useState<number>(0);
+  const [maxR6Available, setMaxR6Available] = useState<number>(0);
 
   // String state for create form inputs so user can backspace and type single digits naturally
   const [r3LimitInput, setR3LimitInput] = useState<string>('1');
   const [r4LimitInput, setR4LimitInput] = useState<string>('1');
+  const [r6LimitInput, setR6LimitInput] = useState<string>('6');
 
   // Edit limits state for existing slots (string inputs for backspace support)
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [editR3Input, setEditR3Input] = useState<string>('1');
   const [editR4Input, setEditR4Input] = useState<string>('1');
+  const [editR6Input, setEditR6Input] = useState<string>('6');
+
+  // Slot Claims tracking
+  const [slotClaimsMap, setSlotClaimsMap] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     apiClient.get('/events').then((res) => {
@@ -41,19 +47,23 @@ export const SlotManager: React.FC = () => {
   const fetchAvailableQuestionCounts = async () => {
     if (!selectedEventId) return;
     try {
-      const [r3Res, r4Res] = await Promise.all([
+      const [r3Res, r4Res, r6Res] = await Promise.all([
         apiClient.get(`/ai-or-real/event/${selectedEventId}`).catch(() => ({ data: [] })),
         apiClient.get(`/data-challenge/event/${selectedEventId}`).catch(() => ({ data: [] })),
+        apiClient.get(`/problem-statements/event/${selectedEventId}`).catch(() => ({ data: [] })),
       ]);
 
       const count3 = Array.isArray(r3Res.data) ? r3Res.data.length : 0;
       const count4 = Array.isArray(r4Res.data) ? r4Res.data.length : 0;
+      const count6 = Array.isArray(r6Res.data) ? r6Res.data.length : 0;
 
       setMaxR3Available(count3);
       setMaxR4Available(count4);
+      setMaxR6Available(count6);
 
       setR3LimitInput(count3 > 0 ? String(Math.min(3, count3)) : '1');
       setR4LimitInput(count4 > 0 ? String(Math.min(3, count4)) : '1');
+      setR6LimitInput(count6 > 0 ? String(Math.min(6, count6)) : '6');
     } catch (err) {
       console.error(err);
     }
@@ -64,8 +74,23 @@ export const SlotManager: React.FC = () => {
     setLoading(true);
     try {
       const res = await apiClient.get(`/slots/event/${selectedEventId}`);
-      setSlots(res.data);
-      setSlotNumber(res.data.length + 1);
+      const slotList = res.data || [];
+      setSlots(slotList);
+      setSlotNumber(slotList.length + 1);
+
+      // Fetch problem statement claims for all slots
+      const claimsObj: Record<string, any[]> = {};
+      await Promise.all(
+        slotList.map(async (s: any) => {
+          try {
+            const claimsRes = await apiClient.get(`/problem-statements/slot/${s.id}/claims`);
+            claimsObj[s.id] = claimsRes.data || [];
+          } catch (e) {
+            claimsObj[s.id] = [];
+          }
+        })
+      );
+      setSlotClaimsMap(claimsObj);
     } catch (err) {
       console.error(err);
     } finally {
@@ -93,6 +118,7 @@ export const SlotManager: React.FC = () => {
 
     const finalR3 = parseLimitValue(r3LimitInput, maxR3Available);
     const finalR4 = parseLimitValue(r4LimitInput, maxR4Available);
+    const finalR6 = parseLimitValue(r6LimitInput, maxR6Available);
 
     setIsSubmitting(true);
     try {
@@ -102,10 +128,12 @@ export const SlotManager: React.FC = () => {
         custom_code: customCode || undefined,
         r3_question_limit: finalR3,
         r4_question_limit: finalR4,
+        r6_question_limit: finalR6,
       });
       setCustomCode('');
       setR3LimitInput(String(finalR3));
       setR4LimitInput(String(finalR4));
+      setR6LimitInput(String(finalR6));
       fetchSlots();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to create slot');
@@ -126,11 +154,13 @@ export const SlotManager: React.FC = () => {
   const handleSaveSlotLimits = async (slotId: string) => {
     const finalR3 = parseLimitValue(editR3Input, maxR3Available);
     const finalR4 = parseLimitValue(editR4Input, maxR4Available);
+    const finalR6 = parseLimitValue(editR6Input, maxR6Available);
 
     try {
       await apiClient.patch(`/slots/${slotId}`, {
         r3_question_limit: finalR3,
         r4_question_limit: finalR4,
+        r6_question_limit: finalR6,
       });
       setEditingSlotId(null);
       fetchSlots();
@@ -222,7 +252,7 @@ export const SlotManager: React.FC = () => {
               </span>
             </div>
 
-            {/* Per-Slot Question Limits for Round 3 & Round 4 */}
+            {/* Per-Slot Question Limits for Round 3, Round 4 & Round 6 */}
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
               <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-900 block flex items-center gap-1.5">
                 <Settings className="w-3.5 h-3.5 text-indigo-600" /> Per-Slot Round Question Limits
@@ -283,6 +313,34 @@ export const SlotManager: React.FC = () => {
                   className="input-field text-sm font-bold"
                 />
               </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[11px] font-bold text-slate-700 uppercase">
+                    Round 6 Problem Cards:
+                  </label>
+                  <span className="text-[11px] font-bold font-mono text-indigo-600">
+                    Max Available: {maxR6Available}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={r6LimitInput}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d+$/.test(val)) {
+                      setR6LimitInput(val);
+                    }
+                  }}
+                  onBlur={() => {
+                    setR6LimitInput(String(parseLimitValue(r6LimitInput, maxR6Available)));
+                  }}
+                  placeholder="e.g. 6"
+                  className="input-field text-sm font-bold"
+                />
+              </div>
             </div>
 
             <button type="submit" disabled={!selectedEventId || isSubmitting} className="btn-primary w-full gap-2 disabled:opacity-50">
@@ -309,6 +367,8 @@ export const SlotManager: React.FC = () => {
                 const isEditing = editingSlotId === slot.id;
                 const r3Count = slot.r3_question_limit || 1;
                 const r4Count = slot.r4_question_limit || 1;
+                const r6Count = slot.r6_question_limit || 6;
+                const claims = slotClaimsMap[slot.id] || [];
                 // Editing is allowed ONLY before event begins (scheduled or open status)
                 const canEditLimits = slot.status === 'scheduled' || slot.status === 'open';
 
@@ -368,7 +428,7 @@ export const SlotManager: React.FC = () => {
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-extrabold uppercase text-slate-700 flex items-center gap-1">
-                            <Settings className="w-3 h-3 text-indigo-600" /> Question Limits:
+                            <Settings className="w-3 h-3 text-indigo-600" /> Limits:
                           </span>
                           {canEditLimits ? (
                             !isEditing ? (
@@ -377,6 +437,7 @@ export const SlotManager: React.FC = () => {
                                   setEditingSlotId(slot.id);
                                   setEditR3Input(String(r3Count));
                                   setEditR4Input(String(r4Count));
+                                  setEditR6Input(String(r6Count));
                                 }}
                                 className="text-[11px] font-bold text-indigo-600 hover:underline"
                               >
@@ -398,20 +459,24 @@ export const SlotManager: React.FC = () => {
                         </div>
 
                         {!isEditing ? (
-                          <div className="grid grid-cols-2 gap-2 text-xs font-mono font-bold">
-                            <div className="bg-white p-2 rounded border border-slate-200 text-slate-700">
-                              <span className="text-[10px] text-slate-400 block font-sans">Round 3 AI/Real:</span>
-                              <span className="text-indigo-600 font-black">{r3Count}</span> / {maxR3Available}
+                          <div className="grid grid-cols-3 gap-1.5 text-xs font-mono font-bold text-center">
+                            <div className="bg-white p-1.5 rounded border border-slate-200 text-slate-700">
+                              <span className="text-[9px] text-slate-400 block font-sans">R3 AI:</span>
+                              <span className="text-indigo-600 font-black">{r3Count}</span>/{maxR3Available}
                             </div>
-                            <div className="bg-white p-2 rounded border border-slate-200 text-slate-700">
-                              <span className="text-[10px] text-slate-400 block font-sans">Round 4 Data:</span>
-                              <span className="text-indigo-600 font-black">{r4Count}</span> / {maxR4Available}
+                            <div className="bg-white p-1.5 rounded border border-slate-200 text-slate-700">
+                              <span className="text-[9px] text-slate-400 block font-sans">R4 Data:</span>
+                              <span className="text-indigo-600 font-black">{r4Count}</span>/{maxR4Available}
+                            </div>
+                            <div className="bg-white p-1.5 rounded border border-slate-200 text-slate-700">
+                              <span className="text-[9px] text-slate-400 block font-sans">R6 Cards:</span>
+                              <span className="text-emerald-600 font-black">{r6Count}</span>/{maxR6Available}
                             </div>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-3 gap-1.5">
                             <div>
-                              <span className="text-[10px] font-bold text-slate-500 block mb-0.5">R3 Questions:</span>
+                              <span className="text-[9px] font-bold text-slate-500 block mb-0.5">R3 Questions:</span>
                               <input
                                 type="text"
                                 inputMode="numeric"
@@ -430,7 +495,7 @@ export const SlotManager: React.FC = () => {
                               />
                             </div>
                             <div>
-                              <span className="text-[10px] font-bold text-slate-500 block mb-0.5">R4 Questions:</span>
+                              <span className="text-[9px] font-bold text-slate-500 block mb-0.5">R4 Questions:</span>
                               <input
                                 type="text"
                                 inputMode="numeric"
@@ -448,9 +513,45 @@ export const SlotManager: React.FC = () => {
                                 className="input-field text-xs py-1 text-center font-bold"
                               />
                             </div>
+                            <div>
+                              <span className="text-[9px] font-bold text-slate-500 block mb-0.5">R6 Cards:</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={editR6Input}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '' || /^\d+$/.test(val)) {
+                                    setEditR6Input(val);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  setEditR6Input(String(parseLimitValue(editR6Input, maxR6Available)));
+                                }}
+                                className="input-field text-xs py-1 text-center font-bold"
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
+
+                      {/* Claimed Problem Statements Box */}
+                      {claims.length > 0 && (
+                        <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 mb-4 space-y-1.5">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">
+                            🎯 R6 Problem Claims ({claims.length}):
+                          </span>
+                          <div className="space-y-1 max-h-24 overflow-y-auto">
+                            {claims.map((c: any, idx: number) => (
+                              <div key={idx} className="text-[11px] text-slate-700 flex items-center justify-between bg-white px-2 py-1 rounded border border-emerald-100 font-mono">
+                                <span><strong>{c.team_name}</strong></span>
+                                <span className="text-emerald-700 font-bold">Card #{c.card_index !== undefined ? c.card_index + 1 : idx + 1}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions */}

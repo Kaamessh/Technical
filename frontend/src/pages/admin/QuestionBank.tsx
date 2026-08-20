@@ -16,6 +16,9 @@ import {
   RotateCcw,
   CheckCircle2,
   Save,
+  FolderGit2,
+  X,
+  FileText,
 } from 'lucide-react';
 
 export const QuestionBank: React.FC = () => {
@@ -78,6 +81,13 @@ export const QuestionBank: React.FC = () => {
   const [r5BinaryClue, setR5BinaryClue] = useState('');
   const [r5TargetWord, setR5TargetWord] = useState('');
 
+  // Round 6 States (Problem Statement Management)
+  const [problemStatements, setProblemStatements] = useState<any[]>([]);
+  const [editingPsId, setEditingPsId] = useState<string | null>(null);
+  const [psTitle, setPsTitle] = useState('');
+  const [psCategory, setPsCategory] = useState('AI & Machine Learning');
+  const [psDescription, setPsDescription] = useState('');
+
   useEffect(() => {
     apiClient.get('/events').then((res) => {
       setEvents(res.data);
@@ -104,6 +114,9 @@ export const QuestionBank: React.FC = () => {
     } else if (activeTab === 5) {
       const res = await apiClient.get(`/decode-words/pool/${selectedEventId}`);
       setDecodePool(res.data);
+    } else if (activeTab === 6) {
+      const res = await apiClient.get(`/problem-statements/event/${selectedEventId}`);
+      setProblemStatements(res.data);
     }
   };
 
@@ -331,6 +344,119 @@ export const QuestionBank: React.FC = () => {
     }
   };
 
+  // Round 6 Handlers
+  const handleSaveProblemStatement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!psTitle.trim() || !psDescription.trim()) {
+      alert('Please provide both a title and description for the problem statement.');
+      return;
+    }
+
+    try {
+      if (editingPsId) {
+        await apiClient.put(`/problem-statements/${editingPsId}`, {
+          event_id: selectedEventId,
+          title: psTitle,
+          category: psCategory,
+          description: psDescription,
+        });
+        alert('Problem statement updated successfully!');
+      } else {
+        await apiClient.post('/problem-statements', {
+          event_id: selectedEventId,
+          title: psTitle,
+          category: psCategory,
+          description: psDescription,
+        });
+        alert('Problem statement created successfully!');
+      }
+
+      setEditingPsId(null);
+      setPsTitle('');
+      setPsDescription('');
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to save problem statement');
+    }
+  };
+
+  const handleEditProblemStatement = (ps: any) => {
+    setEditingPsId(ps.id);
+    setPsTitle(ps.title);
+    setPsCategory(ps.category || 'General');
+    setPsDescription(ps.description);
+  };
+
+  const handleCancelEditProblemStatement = () => {
+    setEditingPsId(null);
+    setPsTitle('');
+    setPsDescription('');
+  };
+
+  const handleDeleteProblemStatement = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this problem statement?')) return;
+    try {
+      await apiClient.delete(`/problem-statements/${id}?eventId=${selectedEventId}`);
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete problem statement');
+    }
+  };
+
+  const handleLoadSampleProblemStatements = async () => {
+    const samples = [
+      {
+        title: 'Autonomous Multi-Modal Traffic Anomaly & Hazard Detection System',
+        category: 'Computer Vision & IoT',
+        description:
+          'Design and implement a real-time edge AI pipeline that ingests camera feeds from urban intersections to automatically detect vehicular accidents, stalled vehicles, and pedestrian jaywalking hazards with sub-100ms inference latency.',
+      },
+      {
+        title: 'Decentralized Zero-Knowledge Healthcare Record Interoperability Protocol',
+        category: 'Blockchain & Privacy',
+        description:
+          'Construct a cryptographic patient consent and medical history exchange platform using zk-SNARKs that allows hospitals to query validated clinical histories without decrypting patient personally identifiable data (PII).',
+      },
+      {
+        title: 'Intelligent Supply Chain Route Optimizer with Carbon Footprint Minimization',
+        category: 'Logistics & Sustainability',
+        description:
+          'Develop a dynamic freight routing optimization engine leveraging graph reinforcement learning that balances delivery SLA deadlines against multi-modal vehicle fuel consumption to minimize aggregate carbon emissions.',
+      },
+      {
+        title: 'Automated Financial Transaction Fraud & Ring Network Investigator',
+        category: 'Cybersecurity & Fintech',
+        description:
+          'Build an interactive graph anomaly analysis dashboard capable of processing high-frequency UPI/credit transactions, surfacing synthetic identity fraud rings, circular fund loops, and sudden burst velocity patterns.',
+      },
+      {
+        title: 'Generative AI-Powered Personalized Adaptive Education Tutor',
+        category: 'EdTech & LLMs',
+        description:
+          'Create an AI pedagogical agent with retrieval-augmented generation (RAG) that continually evaluates learner cognitive mastery through quizzes, identifies core misconceptions, and dynamically scaffolds tailored learning paths.',
+      },
+      {
+        title: 'Distributed Disaster Response Resource Allocation & Drone Dispatch Mesh',
+        category: 'Emergency Management & Cloud',
+        description:
+          'Architect an offline-first mesh network and coordinator portal for first responders during natural disasters, orchestrating drone search patterns, shelter occupancy telemetry, and critical medical supply distribution.',
+      },
+    ];
+
+    try {
+      for (const sample of samples) {
+        await apiClient.post('/problem-statements', {
+          event_id: selectedEventId,
+          ...sample,
+        });
+      }
+      alert('6 Standard Hackathon Problem Statements added successfully!');
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to load samples');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -365,6 +491,7 @@ export const QuestionBank: React.FC = () => {
           { id: 3, label: 'Round 3: AI or Real', icon: Sparkles },
           { id: 4, label: 'Round 4: Spot Data Anomaly', icon: Database },
           { id: 5, label: 'Round 5: Decode Words', icon: KeyRound },
+          { id: 6, label: 'Round 6: Problem Statements', icon: FolderGit2 },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -1031,6 +1158,149 @@ export const QuestionBank: React.FC = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 6: ROUND 6 PROBLEM STATEMENTS */}
+      {activeTab === 6 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="card h-fit space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-extrabold text-slate-900">
+                {editingPsId ? 'Edit Problem Statement' : 'Add Problem Statement'}
+              </h3>
+              {editingPsId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEditProblemStatement}
+                  className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 font-bold"
+                >
+                  <X className="w-3.5 h-3.5" /> Cancel
+                </button>
+              )}
+            </div>
+
+            <form onSubmit={handleSaveProblemStatement} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Problem Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={psTitle}
+                  onChange={(e) => setPsTitle(e.target.value)}
+                  placeholder="e.g. AI-Powered Healthcare Consent Protocol"
+                  className="input-field text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Category / Domain
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={psCategory}
+                  onChange={(e) => setPsCategory(e.target.value)}
+                  placeholder="e.g. AI & Healthcare / Blockchain / IoT"
+                  className="input-field text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Detailed Description & Requirements
+                </label>
+                <textarea
+                  required
+                  rows={6}
+                  value={psDescription}
+                  onChange={(e) => setPsDescription(e.target.value)}
+                  placeholder="Describe the challenge statement, core expectations, functional requirements, and target outputs for the teams..."
+                  className="input-field text-xs font-sans leading-relaxed"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button type="submit" className="btn-primary flex-1 text-xs py-2.5 font-bold">
+                  {editingPsId ? 'Update Statement' : 'Save Problem Statement'}
+                </button>
+              </div>
+            </form>
+
+            <div className="pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={handleLoadSampleProblemStatements}
+                className="btn-secondary w-full text-xs py-2.5 font-bold flex items-center justify-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Pre-fill 6 Standard Hackathon Challenges
+              </button>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-extrabold text-slate-900">
+                Problem Statement Pool ({problemStatements.length})
+              </h3>
+              <span className="text-xs text-slate-500 font-medium">
+                Admin can configure per-slot card limit in <strong>Slot Manager</strong>.
+              </span>
+            </div>
+
+            {problemStatements.length === 0 ? (
+              <div className="card text-center py-12 text-slate-400">
+                No problem statements added yet. Create one or load sample challenges.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {problemStatements.map((ps, idx) => (
+                  <div
+                    key={ps.id || idx}
+                    className="card p-5 border-slate-200 hover:border-indigo-200 transition-all flex flex-col justify-between gap-3"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[11px] font-bold font-mono">
+                            PS #{idx + 1}
+                          </span>
+                          <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-[11px] font-bold">
+                            {ps.category || 'General'}
+                          </span>
+                        </div>
+                        <h4 className="font-extrabold text-slate-900 text-base">{ps.title}</h4>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handleEditProblemStatement(ps)}
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+                          title="Edit Statement"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProblemStatement(ps.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                          title="Delete Statement"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs text-slate-600 leading-relaxed font-sans whitespace-pre-line">
+                      {ps.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

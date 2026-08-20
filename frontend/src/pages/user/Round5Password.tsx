@@ -47,8 +47,8 @@ export const Round5Password: React.FC = () => {
 
       if (res.data.correct) {
         setTriggerConfetti(true);
-        setFeedback({ message: '🎉 CONGRATULATIONS! EVENT FINALE DECODED SUCCESSFULLY!', type: 'success' });
-        setTimeout(() => navigate('/team/completed'), 2500);
+        setFeedback({ message: '🎉 CONGRATULATIONS! PASSWORD DECODED! PROCEEDING TO PROBLEM STATEMENT SELECTION...', type: 'success' });
+        setTimeout(() => navigate('/team/round-6'), 2000);
       } else {
         setFeedback({ message: res.data.message || 'Invalid password. Check your binary conversion and decoded word!', type: 'error' });
       }
@@ -67,7 +67,7 @@ export const Round5Password: React.FC = () => {
       <div className="flex items-center justify-between gap-4 mb-6">
         <div>
           <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-            ROUND 5 OF 5 — FINAL BINARY DECODE
+            ROUND 5 OF 6 — BINARY TERMINAL UNLOCK
           </span>
           <h1 className="text-2xl font-extrabold text-slate-900 font-sans mt-2 flex items-center gap-2">
             <KeyRound className="w-6 h-6 text-amber-500" /> Terminal Password Unlock

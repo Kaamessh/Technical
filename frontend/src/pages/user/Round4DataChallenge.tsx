@@ -29,6 +29,7 @@ export const Round4DataChallenge: React.FC = () => {
   // Decode popup
   const [showDecode, setShowDecode] = useState(false);
   const [decodePair, setDecodePair] = useState<number[] | null>(null);
+  const [binaryClue, setBinaryClue] = useState<string | null>(null);
   const [triggerConfetti, setTriggerConfetti] = useState(false);
 
   const fetchQuestion = () => {
@@ -39,6 +40,7 @@ export const Round4DataChallenge: React.FC = () => {
         if (res.data.completed) {
           if (res.data.decode_hint) {
             setDecodePair(res.data.decode_hint);
+            setBinaryClue(res.data.binary_clue || null);
             setShowDecode(true);
           } else {
             navigate('/team/round-5');
@@ -142,7 +144,7 @@ export const Round4DataChallenge: React.FC = () => {
     <div className="max-w-6xl mx-auto px-4 py-8">
       {triggerConfetti && <ConfettiEffect />}
       {showDecode && (
-        <DecodePopup roundNumber={4} pairNumbers={decodePair} onDismiss={handleDismissDecode} />
+        <DecodePopup roundNumber={4} pairNumbers={decodePair} binaryClue={binaryClue} onDismiss={handleDismissDecode} />
       )}
 
       {/* Header */}

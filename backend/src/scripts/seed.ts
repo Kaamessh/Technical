@@ -185,6 +185,75 @@ async function seed() {
 
     await supabase.from('data_challenge_questions').insert(dataSamples);
     console.log('✅ Round 4 Interactive Data Challenge Questions Seeded.');
+
+    // 8. Seed Round 6 Problem Statements
+    const sampleProblemStatements = [
+      {
+        id: 'ps_traffic_ai',
+        title: 'Autonomous Multi-Modal Traffic Anomaly & Hazard Detection System',
+        category: 'Computer Vision & IoT',
+        description:
+          'Design and implement a real-time edge AI pipeline that ingests camera feeds from urban intersections to automatically detect vehicular accidents, stalled vehicles, and pedestrian jaywalking hazards with sub-100ms inference latency.',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'ps_health_zk',
+        title: 'Decentralized Zero-Knowledge Healthcare Record Interoperability Protocol',
+        category: 'Blockchain & Privacy',
+        description:
+          'Construct a cryptographic patient consent and medical history exchange platform using zk-SNARKs that allows hospitals to query validated clinical histories without decrypting patient personally identifiable data (PII).',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'ps_supply_opt',
+        title: 'Intelligent Supply Chain Route Optimizer with Carbon Footprint Minimization',
+        category: 'Logistics & Sustainability',
+        description:
+          'Develop a dynamic freight routing optimization engine leveraging graph reinforcement learning that balances delivery SLA deadlines against multi-modal vehicle fuel consumption to minimize aggregate carbon emissions.',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'ps_fin_fraud',
+        title: 'Automated Financial Transaction Fraud & Ring Network Investigator',
+        category: 'Cybersecurity & Fintech',
+        description:
+          'Build an interactive graph anomaly analysis dashboard capable of processing high-frequency UPI/credit transactions, surfacing synthetic identity fraud rings, circular fund loops, and sudden burst velocity patterns.',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'ps_edtech_rag',
+        title: 'Generative AI-Powered Personalized Adaptive Education Tutor',
+        category: 'EdTech & LLMs',
+        description:
+          'Create an AI pedagogical agent with retrieval-augmented generation (RAG) that continually evaluates learner cognitive mastery through quizzes, identifies core misconceptions, and dynamically scaffolds tailored learning paths.',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'ps_disaster_mesh',
+        title: 'Distributed Disaster Response Resource Allocation & Drone Dispatch Mesh',
+        category: 'Emergency Management & Cloud',
+        description:
+          'Architect an offline-first mesh network and coordinator portal for first responders during natural disasters, orchestrating drone search patterns, shelter occupancy telemetry, and critical medical supply distribution.',
+        created_at: new Date().toISOString(),
+      },
+    ];
+
+    const { data: existingPs } = await supabase
+      .from('quiz_questions')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('question_text', '__PROBLEM_STATEMENTS__')
+      .single();
+
+    if (!existingPs) {
+      await supabase.from('quiz_questions').insert({
+        event_id: eventId,
+        question_text: '__PROBLEM_STATEMENTS__',
+        options: sampleProblemStatements,
+        correct_index: 0,
+      });
+      console.log('✅ Round 6 Problem Statements Seeded.');
+    }
   }
 
   console.log('🚀 Seed Completed Successfully!');
