@@ -339,7 +339,13 @@ export const Round1Quiz: React.FC = () => {
                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold transition-colors ${badgeStyle}`}>
                       {String.fromCharCode(65 + idx)}
                     </span>
-                    <span>{optionText}</span>
+                    <span>
+                      {typeof optionText === 'string'
+                        ? optionText
+                        : typeof optionText === 'object' && optionText !== null
+                        ? (optionText as any).title || (optionText as any).text || JSON.stringify(optionText)
+                        : String(optionText)}
+                    </span>
                   </div>
                   {IconComponent}
                 </button>

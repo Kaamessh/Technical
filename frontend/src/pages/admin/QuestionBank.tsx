@@ -573,18 +573,21 @@ export const QuestionBank: React.FC = () => {
                 <div className="flex-1">
                   <div className="font-bold text-slate-900 text-sm mb-2">{q.question_text}</div>
                   <div className="grid grid-cols-2 gap-2 text-xs font-medium">
-                    {(q.options as string[]).map((opt, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-2 rounded border ${
-                          idx === q.correct_index
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
-                            : 'bg-slate-50 text-slate-700 border-slate-100'
-                        }`}
-                      >
-                        {String.fromCharCode(65 + idx)}. {opt}
-                      </div>
-                    ))}
+                    {(Array.isArray(q.options) ? q.options : []).map((opt: any, idx: number) => {
+                      const displayOpt = typeof opt === 'string' ? opt : (typeof opt === 'object' && opt !== null ? (opt.title || JSON.stringify(opt)) : String(opt));
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-2 rounded border ${
+                            idx === q.correct_index
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
+                              : 'bg-slate-50 text-slate-700 border-slate-100'
+                          }`}
+                        >
+                          {String.fromCharCode(65 + idx)}. {displayOpt}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

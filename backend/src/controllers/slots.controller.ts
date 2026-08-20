@@ -226,17 +226,20 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
 
       const { data: questions } = await supabase
         .from('quiz_questions')
-        .select('id')
+        .select('id, question_text, options')
         .eq('event_id', slot.event_id)
-        .neq('question_text', '__DECODE_POOL__')
-        .neq('question_text', '__SLOT_LIMITS__');
+        .not('question_text', 'like', '__%');
 
-      if (!questions || questions.length === 0) {
+      const validQuizQuestions = (questions || []).filter(
+        (q) => q.question_text && !q.question_text.startsWith('__') && Array.isArray(q.options) && typeof q.options[0] === 'string'
+      );
+
+      if (!validQuizQuestions || validQuizQuestions.length === 0) {
         throw new Error('Cannot start Round 1: No quiz questions found for this event.');
       }
 
-      if (questions && questions.length > 0) {
-        const shuffled = [...questions].sort(() => 0.5 - Math.random());
+      if (validQuizQuestions && validQuizQuestions.length > 0) {
+        const shuffled = [...validQuizQuestions].sort(() => 0.5 - Math.random());
         const selected = shuffled.slice(0, queueLength);
 
         await supabase.from('slot_question_queue').delete().eq('slot_id', id);
