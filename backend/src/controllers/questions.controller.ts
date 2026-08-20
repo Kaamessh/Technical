@@ -43,6 +43,28 @@ export async function getQuizQuestionsByEvent(req: any, res: Response) {
   }
 }
 
+export async function updateQuizQuestion(req: AuthenticatedAdminRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const { question_text, options, correct_index } = req.body;
+    if (!question_text || !Array.isArray(options) || correct_index === undefined) {
+      return res.status(400).json({ error: 'question_text, options (array), and correct_index required' });
+    }
+
+    const { data: q, error } = await supabase
+      .from('quiz_questions')
+      .update({ question_text, options, correct_index })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(q);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+
 export async function deleteQuizQuestion(req: AuthenticatedAdminRequest, res: Response) {
   try {
     const { id } = req.params;
@@ -53,3 +75,4 @@ export async function deleteQuizQuestion(req: AuthenticatedAdminRequest, res: Re
     return res.status(500).json({ error: error.message });
   }
 }
+

@@ -20,6 +20,7 @@ import {
   X,
   FileText,
 } from 'lucide-react';
+import { ROUND_4_TEMPLATES, Round4Template } from '../../data/round4Templates';
 
 export const QuestionBank: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -31,12 +32,14 @@ export const QuestionBank: React.FC = () => {
 
   // Round 1 States
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+  const [editingR1Id, setEditingR1Id] = useState<string | null>(null);
   const [r1Question, setR1Question] = useState('');
   const [r1Options, setR1Options] = useState(['', '', '', '']);
   const [r1CorrectIndex, setR1CorrectIndex] = useState(0);
 
   // Round 2 States (Text + Emoji Workflow & Distractors)
   const [workflowChallenges, setWorkflowChallenges] = useState<any[]>([]);
+  const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null);
   const [r2Title, setR2Title] = useState('Find the data life cycle workflow');
   const [r2RealSteps, setR2RealSteps] = useState([
     '📸 Capture',
@@ -125,41 +128,126 @@ export const QuestionBank: React.FC = () => {
   }, [selectedEventId, activeTab]);
 
   // Round 1 Handlers
-  const handleAddR1 = async (e: React.FormEvent) => {
+  const handleAddOrUpdateR1 = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!r1Question.trim()) {
+      alert('Please enter a question prompt.');
+      return;
+    }
     try {
-      await apiClient.post('/questions/round1', {
-        event_id: selectedEventId,
-        question_text: r1Question,
-        options: r1Options,
-        correct_index: r1CorrectIndex,
-      });
+      if (editingR1Id) {
+        await apiClient.put(`/questions/round1/${editingR1Id}`, {
+          question_text: r1Question,
+          options: r1Options,
+          correct_index: r1CorrectIndex,
+        });
+        alert('Quiz question updated successfully!');
+      } else {
+        await apiClient.post('/questions/round1', {
+          event_id: selectedEventId,
+          question_text: r1Question,
+          options: r1Options,
+          correct_index: r1CorrectIndex,
+        });
+        alert('Quiz question added successfully!');
+      }
+      setEditingR1Id(null);
       setR1Question('');
       setR1Options(['', '', '', '']);
+      setR1CorrectIndex(0);
       loadContent();
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to add question');
+      alert(err.response?.data?.error || 'Failed to save question');
+    }
+  };
+
+  const handleEditR1 = (q: any) => {
+    setEditingR1Id(q.id);
+    setR1Question(q.question_text || '');
+    if (Array.isArray(q.options) && q.options.length >= 4) {
+      setR1Options([...q.options]);
+    } else if (Array.isArray(q.options)) {
+      const padded = [...q.options];
+      while (padded.length < 4) padded.push('');
+      setR1Options(padded);
+    } else {
+      setR1Options(['', '', '', '']);
+    }
+    setR1CorrectIndex(q.correct_index !== undefined ? q.correct_index : 0);
+  };
+
+  const handleCancelEditR1 = () => {
+    setEditingR1Id(null);
+    setR1Question('');
+    setR1Options(['', '', '', '']);
+    setR1CorrectIndex(0);
+  };
+
+  const handleDeleteR1 = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this quiz question?')) return;
+    try {
+      await apiClient.delete(`/questions/round1/${id}`);
+      if (editingR1Id === id) {
+        handleCancelEditR1();
+      }
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete question');
     }
   };
 
   // Round 2 Handlers
-  const handleSaveR2 = async (e: React.FormEvent) => {
+  const handleSaveOrUpdateR2 = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const formattedReal = r2RealSteps.map((s) => s.trim()).filter(Boolean);
       const formattedDistractors = r2Distractors.map((s) => s.trim()).filter(Boolean);
       const combinedUrls = [...formattedReal, '__DISTRACTOR__', ...formattedDistractors];
 
-      await apiClient.post('/workflow-challenges', {
-        event_id: selectedEventId,
-        title: r2Title,
-        image_urls: combinedUrls,
-      });
-      alert('Workflow challenge saved successfully!');
+      if (editingWorkflowId) {
+        await apiClient.put(`/workflow-challenges/${editingWorkflowId}`, {
+          title: r2Title,
+          image_urls: combinedUrls,
+        });
+        alert('Workflow challenge updated successfully!');
+      } else {
+        await apiClient.post('/workflow-challenges', {
+          event_id: selectedEventId,
+          title: r2Title,
+          image_urls: combinedUrls,
+        });
+        alert('Workflow challenge created successfully!');
+      }
+      setEditingWorkflowId(null);
+      setR2Title('Find the data life cycle workflow');
+      setR2RealSteps(['📸 Capture', '💾 Store', '⚙️ Process', '📊 Use', '📦 Archive', '🗑️ Destroy']);
+      setR2Distractors(['🖨️ Printing on paper', '🎤 Singing a song', '🎨 Painting a wall']);
       loadContent();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to save workflow challenge');
     }
+  };
+
+  const handleEditR2 = (wf: any) => {
+    setEditingWorkflowId(wf.id);
+    setR2Title(wf.title || 'Workflow Sequence Challenge');
+    const rawUrls: string[] = Array.isArray(wf.image_urls) ? wf.image_urls : [];
+    const distractorIdx = rawUrls.findIndex((s) => s.includes('__DISTRACTOR__'));
+    if (distractorIdx !== -1) {
+      setR2RealSteps(rawUrls.slice(0, distractorIdx));
+      setR2Distractors(rawUrls.slice(distractorIdx + 1));
+    } else {
+      setR2RealSteps(rawUrls);
+      setR2Distractors(['❌ Distractor Option']);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEditR2 = () => {
+    setEditingWorkflowId(null);
+    setR2Title('Find the data life cycle workflow');
+    setR2RealSteps(['📸 Capture', '💾 Store', '⚙️ Process', '📊 Use', '📦 Archive', '🗑️ Destroy']);
+    setR2Distractors(['🖨️ Printing on paper', '🎤 Singing a song', '🎨 Painting a wall']);
   };
 
   // Round 3 Handlers
@@ -215,35 +303,40 @@ export const QuestionBank: React.FC = () => {
     setR4CorrectRowIndex(newCorrectIdx);
   };
 
-  const handleLoadLibraryTemplate = () => {
-    setR4TaskInstruction('Task: Identify the anomalous row(s) and explain the anomaly type.');
-    setR4Headers(['Borrow ID', 'Student', 'Book', 'Category', 'Issue Date', 'Return Date']);
-    setR4Rows([
-      ['L001', 'Rahul', 'Python', 'Programming', 'Aug 01', 'Aug 07'],
-      ['L002', 'Priya', 'DBMS', 'Programming', 'Aug 02', 'Aug 09'],
-      ['L003', 'Arjun', 'AI', 'Programming', 'Aug 03', 'Aug 10'],
-      ['L004', 'Meena', 'Networks', 'Programming', 'Aug 04', 'Aug 12'],
-      ['L005', 'Kiran', 'Organic Chemistry', 'Literature', 'Aug 05', 'Aug 12'],
-      ['L006', 'Divya', 'Python', 'Programming', 'Aug 06', 'Aug 13'],
-      ['L007', 'Sanjay', 'DBMS', 'Programming', 'Aug 07', 'Aug 14'],
-    ]);
-    setR4CorrectRowIndex(4);
+  const handleLoadTemplate = (tpl: Round4Template) => {
+    setR4TaskInstruction(tpl.question_text);
+    setR4Headers([...tpl.headers]);
+    setR4Rows(tpl.rows.map((r) => [...r]));
+    setR4CorrectRowIndex(tpl.correct_index);
     setEditingR4Id(null);
   };
 
-  const handleLoadShipmentTemplate = () => {
-    setR4TaskInstruction('Spot the Anomaly — Find the incorrect data in the shipments below.');
-    setR4Headers(['Shipment ID', 'Customer Name', 'Country', 'Currency', 'City', 'Continent', 'Order Date', 'Delivery Date']);
-    setR4Rows([
-      ['SHP001', 'Rahul Kumar', 'USA', 'Euro (€)', 'New York', 'North America', '2018', '2022'],
-      ['SHP002', 'Priya Sharma', 'Japan', 'Yen (¥)', 'Tokyo', 'Asia', '2028', '2026'],
-      ['SHP003', 'Sneha Rao', 'France', 'Euro (€)', 'Paris', 'Europe', '2015', '2029'],
-      ['SHP004', 'Sanjay Roy', 'Italy', 'Euro (€)', 'Rome', 'Asia', '2026', '2025'],
-      ['SHP005', 'Kavyu Menon', 'USA', 'US Dollar ($)', 'New York', 'South America', '2013', '2017'],
-      ['SHP006', 'Deepak Joshi', 'Japan', 'Yen (¥)', 'Tokyo', 'Europe', '2019', '2027'],
-    ]);
-    setR4CorrectRowIndex(1);
-    setEditingR4Id(null);
+  const handlePreFillAll13R4Questions = async () => {
+    if (!selectedEventId) {
+      alert('Please select an event first.');
+      return;
+    }
+    if (!confirm(`Are you sure you want to add all 13 standard data anomaly questions to this event?`)) {
+      return;
+    }
+
+    try {
+      for (const tpl of ROUND_4_TEMPLATES) {
+        await apiClient.post('/data-challenge', {
+          event_id: selectedEventId,
+          question_text: tpl.question_text,
+          options: {
+            headers: tpl.headers,
+            rows: tpl.rows,
+          },
+          correct_index: tpl.correct_index,
+        });
+      }
+      alert('All 13 Standard Data Anomaly questions added successfully!');
+      loadContent();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to save all 13 questions');
+    }
   };
 
   const handleAddOrUpdateR4 = async (e: React.FormEvent) => {
@@ -514,9 +607,24 @@ export const QuestionBank: React.FC = () => {
       {/* TAB 1: ROUND 1 QUIZ */}
       {activeTab === 1 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="card h-fit">
-            <h3 className="text-base font-extrabold text-slate-900 mb-4">Add Quiz Question</h3>
-            <form onSubmit={handleAddR1} className="space-y-4">
+          <div className="card h-fit border-indigo-100 shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-indigo-600" />
+                {editingR1Id ? 'Edit Quiz Question' : 'Add Quiz Question'}
+              </h3>
+              {editingR1Id && (
+                <button
+                  type="button"
+                  onClick={handleCancelEditR1}
+                  className="text-xs text-rose-600 hover:underline font-bold"
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
+
+            <form onSubmit={handleAddOrUpdateR1} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
                   Question Text
@@ -533,7 +641,7 @@ export const QuestionBank: React.FC = () => {
 
               <div className="space-y-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Options & Correct Answer
+                  Options & Correct Answer (Click Radio to Select Correct)
                 </label>
                 {r1Options.map((opt, idx) => (
                   <div key={idx} className="flex items-center gap-2">
@@ -542,7 +650,8 @@ export const QuestionBank: React.FC = () => {
                       name="r1Correct"
                       checked={r1CorrectIndex === idx}
                       onChange={() => setR1CorrectIndex(idx)}
-                      className="text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                      className="text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                      title="Mark as correct answer"
                     />
                     <input
                       type="text"
@@ -560,155 +669,374 @@ export const QuestionBank: React.FC = () => {
                 ))}
               </div>
 
-              <button type="submit" className="btn-primary w-full text-xs py-2.5 font-bold">
-                Save Quiz Question
-              </button>
+              <div className="flex items-center gap-2 pt-2">
+                {editingR1Id && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEditR1}
+                    className="btn-secondary flex-1 text-xs py-2.5 font-bold"
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className="btn-primary flex-1 text-xs py-2.5 font-bold">
+                  {editingR1Id ? 'Update Quiz Question' : 'Save Quiz Question'}
+                </button>
+              </div>
             </form>
           </div>
 
           <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-base font-extrabold text-slate-900">Quiz Questions ({quizQuestions.length})</h3>
-            {quizQuestions.map((q, i) => (
-              <div key={q.id} className="card p-4 border-slate-200 flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="font-bold text-slate-900 text-sm mb-2">{q.question_text}</div>
-                  <div className="grid grid-cols-2 gap-2 text-xs font-medium">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-extrabold text-slate-900">
+                Quiz Questions ({quizQuestions.length})
+              </h3>
+              <span className="text-xs text-slate-500">
+                Total questions in Round 1 pool
+              </span>
+            </div>
+
+            {quizQuestions.length === 0 ? (
+              <div className="card p-8 text-center text-slate-400">
+                No quiz questions added yet. Use the form on the left to add one.
+              </div>
+            ) : (
+              quizQuestions.map((q, i) => (
+                <div
+                  key={q.id}
+                  className={`card p-4 border transition-all ${
+                    editingR1Id === q.id
+                      ? 'border-indigo-500 ring-2 ring-indigo-100 bg-indigo-50/20'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-start gap-2.5 flex-1">
+                      <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 text-xs font-mono font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <div className="font-bold text-slate-900 text-sm">{q.question_text}</div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleEditR1(q)}
+                        className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center gap-1 text-xs font-bold"
+                        title="Edit question"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" /> Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteR1(q.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1 text-xs font-bold"
+                        title="Delete question"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs font-medium pl-8">
                     {(Array.isArray(q.options) ? q.options : []).map((opt: any, idx: number) => {
-                      const displayOpt = typeof opt === 'string' ? opt : (typeof opt === 'object' && opt !== null ? (opt.title || JSON.stringify(opt)) : String(opt));
+                      const displayOpt =
+                        typeof opt === 'string'
+                          ? opt
+                          : typeof opt === 'object' && opt !== null
+                          ? opt.title || JSON.stringify(opt)
+                          : String(opt);
+                      const isCorrect = idx === q.correct_index;
                       return (
                         <div
                           key={idx}
-                          className={`p-2 rounded border ${
-                            idx === q.correct_index
+                          className={`p-2 rounded border flex items-center gap-1.5 ${
+                            isCorrect
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
                               : 'bg-slate-50 text-slate-700 border-slate-100'
                           }`}
                         >
-                          {String.fromCharCode(65 + idx)}. {displayOpt}
+                          <span className="font-mono text-slate-400">
+                            {String.fromCharCode(65 + idx)}.
+                          </span>
+                          <span>{displayOpt}</span>
+                          {isCorrect && (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-auto shrink-0" />
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}
 
       {/* TAB 2: ROUND 2 WORKFLOW */}
       {activeTab === 2 && (
-        <div className="max-w-4xl mx-auto space-y-6">
-          <div className="card p-6 border-indigo-100">
-            <h3 className="text-lg font-extrabold text-slate-900 mb-1">Round 2: Workflow Step Sequence Authoring</h3>
-            <p className="text-xs text-slate-500 mb-6">Create the correct ordered workflow sequence and distractor items for teams to arrange.</p>
-
-            <form onSubmit={handleSaveR2} className="space-y-6">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Challenge Title / Instruction
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={r2Title}
-                  onChange={(e) => setR2Title(e.target.value)}
-                  className="input-field text-sm font-semibold"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-extrabold uppercase tracking-wider text-emerald-700">
-                    Real Sequence Steps (In Correct Order):
-                  </label>
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Authoring Form */}
+            <div className="card p-6 border-indigo-100 h-fit shadow-xs">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                  <Shuffle className="w-4 h-4 text-indigo-600" />
+                  {editingWorkflowId ? 'Edit Workflow Challenge' : 'Create Workflow Challenge'}
+                </h3>
+                {editingWorkflowId && (
                   <button
                     type="button"
-                    onClick={() => setR2RealSteps([...r2RealSteps, '📌 New Step'])}
-                    className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                    onClick={handleCancelEditR2}
+                    className="text-xs text-rose-600 hover:underline font-bold"
                   >
-                    + Add Step
+                    Cancel Edit
                   </button>
-                </div>
-                <div className="space-y-2">
-                  {r2RealSteps.map((step, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center font-mono">
-                        {idx + 1}
-                      </span>
-                      <input
-                        type="text"
-                        required
-                        value={step}
-                        onChange={(e) => {
-                          const copy = [...r2RealSteps];
-                          copy[idx] = e.target.value;
-                          setR2RealSteps(copy);
-                        }}
-                        className="input-field text-xs py-2 font-semibold"
-                      />
-                      {r2RealSteps.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => setR2RealSteps(r2RealSteps.filter((_, i) => i !== idx))}
-                          className="p-1 text-slate-400 hover:text-rose-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                )}
               </div>
+              <p className="text-xs text-slate-500 mb-5">
+                Configure the ordered workflow steps and distractor options for teams to arrange.
+              </p>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-extrabold uppercase tracking-wider text-rose-700">
-                    Distractor Steps (Irrelevant Options to Filter Out):
+              <form onSubmit={handleSaveOrUpdateR2} className="space-y-5">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Challenge Title / Instruction
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setR2Distractors([...r2Distractors, '❌ Distractor Option'])}
-                    className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
-                  >
-                    + Add Distractor
+                  <input
+                    type="text"
+                    required
+                    value={r2Title}
+                    onChange={(e) => setR2Title(e.target.value)}
+                    placeholder="e.g. Find the data life cycle workflow"
+                    className="input-field text-sm font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-extrabold uppercase tracking-wider text-emerald-700">
+                      Real Sequence Steps (In Correct Order):
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setR2RealSteps([...r2RealSteps, '📌 New Step'])}
+                      className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                    >
+                      + Add Step
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {r2RealSteps.map((step, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center font-mono shrink-0">
+                          {idx + 1}
+                        </span>
+                        <input
+                          type="text"
+                          required
+                          value={step}
+                          onChange={(e) => {
+                            const copy = [...r2RealSteps];
+                            copy[idx] = e.target.value;
+                            setR2RealSteps(copy);
+                          }}
+                          className="input-field text-xs py-2 font-semibold"
+                        />
+                        {r2RealSteps.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => setR2RealSteps(r2RealSteps.filter((_, i) => i !== idx))}
+                            className="p-1 text-slate-400 hover:text-rose-600 shrink-0"
+                            title="Remove step"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-extrabold uppercase tracking-wider text-rose-700">
+                      Distractor Steps (Irrelevant Options to Filter Out):
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setR2Distractors([...r2Distractors, '❌ Distractor Option'])}
+                      className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                    >
+                      + Add Distractor
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {r2Distractors.map((dis, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-800 text-xs font-bold flex items-center justify-center font-mono shrink-0">
+                          ✕
+                        </span>
+                        <input
+                          type="text"
+                          required
+                          value={dis}
+                          onChange={(e) => {
+                            const copy = [...r2Distractors];
+                            copy[idx] = e.target.value;
+                            setR2Distractors(copy);
+                          }}
+                          className="input-field text-xs py-2 text-rose-950 font-medium"
+                        />
+                        {r2Distractors.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setR2Distractors(r2Distractors.filter((_, i) => i !== idx))}
+                            className="p-1 text-slate-400 hover:text-rose-600 shrink-0"
+                            title="Remove distractor"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  {editingWorkflowId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEditR2}
+                      className="btn-secondary flex-1 py-2.5 font-bold text-xs"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button type="submit" className="btn-primary flex-1 py-2.5 font-bold text-xs">
+                    {editingWorkflowId ? 'Update Workflow Challenge' : 'Save Workflow Challenge'}
                   </button>
                 </div>
-                <div className="space-y-2">
-                  {r2Distractors.map((dis, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-800 text-xs font-bold flex items-center justify-center font-mono">
-                        ❌
-                      </span>
-                      <input
-                        type="text"
-                        required
-                        value={dis}
-                        onChange={(e) => {
-                          const copy = [...r2Distractors];
-                          copy[idx] = e.target.value;
-                          setR2Distractors(copy);
-                        }}
-                        className="input-field text-xs py-2 text-rose-950 font-medium"
-                      />
-                      {r2Distractors.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => setR2Distractors(r2Distractors.filter((_, i) => i !== idx))}
-                          className="p-1 text-slate-400 hover:text-rose-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+              </form>
+            </div>
+
+            {/* List Section: Show created workflows with count, edit & delete */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Workflow Challenges ({workflowChallenges.length})
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Active workflows configured for Round 2
+                  </p>
                 </div>
               </div>
 
-              <button type="submit" className="btn-primary w-full py-3 font-bold text-sm">
-                Save Workflow Challenge
-              </button>
-            </form>
+              {workflowChallenges.length === 0 ? (
+                <div className="card p-8 text-center text-slate-400">
+                  No workflow challenges created yet. Use the authoring form to create one.
+                </div>
+              ) : (
+                workflowChallenges.map((wf, idx) => {
+                  const rawUrls: string[] = Array.isArray(wf.image_urls) ? wf.image_urls : [];
+                  const distractorIdx = rawUrls.findIndex((s) => s.includes('__DISTRACTOR__'));
+                  const realSteps = distractorIdx !== -1 ? rawUrls.slice(0, distractorIdx) : rawUrls;
+                  const distractorSteps = distractorIdx !== -1 ? rawUrls.slice(distractorIdx + 1) : [];
+
+                  return (
+                    <div
+                      key={wf.id}
+                      className={`card p-5 border transition-all ${
+                        editingWorkflowId === wf.id
+                          ? 'border-indigo-500 ring-2 ring-indigo-100 bg-indigo-50/20'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4 mb-3 pb-3 border-b border-slate-100">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-800 text-xs font-mono font-bold flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <h4 className="font-extrabold text-slate-900 text-sm">
+                              {wf.title || 'Workflow Sequence Challenge'}
+                            </h4>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 pl-8">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              {realSteps.length} Real Steps
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                              {distractorSteps.length} Distractors
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleEditR2(wf)}
+                            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center gap-1 text-xs font-bold"
+                            title="Edit workflow"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteR2(wf.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1 text-xs font-bold"
+                            title="Delete workflow"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Delete
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Steps Visual Preview */}
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                            Correct Sequence Order:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {realSteps.map((step, sIdx) => (
+                              <span
+                                key={sIdx}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-900 border border-emerald-200 font-semibold"
+                              >
+                                <span className="text-[10px] font-bold font-mono opacity-70">
+                                  {sIdx + 1}.
+                                </span>
+                                {step}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {distractorSteps.length > 0 && (
+                          <div className="pt-1">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                              Distractors:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {distractorSteps.map((dis, dIdx) => (
+                                <span
+                                  key={dIdx}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-50 text-rose-900 border border-rose-200 font-medium line-through opacity-80"
+                                >
+                                  {dis}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -807,30 +1135,43 @@ export const QuestionBank: React.FC = () => {
       {activeTab === 4 && (
         <div className="space-y-8">
           {/* Quick Presets Banner */}
-          <div className="bg-indigo-900 text-white p-6 rounded-2xl border border-indigo-800 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+          <div className="bg-indigo-900 text-white p-6 rounded-2xl border border-indigo-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-xl">
             <div>
               <span className="text-xs font-bold text-amber-400 uppercase tracking-wider font-mono">
-                INTERACTIVE DATA TABLE CREATOR
+                INTERACTIVE DATA TABLE CREATOR & TEMPLATES
               </span>
-              <h2 className="text-xl font-extrabold text-white mt-1">Design Custom Data Anomaly Tables</h2>
+              <h2 className="text-xl font-extrabold text-white mt-1">Design & Manage Data Anomaly Tables</h2>
               <p className="text-xs text-indigo-200 mt-1 max-w-xl">
-                Build table columns, rows, and set the correct anomalous row. You can also shuffle rows dynamically!
+                Choose from 13 standard real-world anomaly templates (Banking, Library, Taxi, Attendance, Food, Logistics, etc.) or design custom tables from scratch.
               </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <select
+                onChange={(e) => {
+                  const idx = parseInt(e.target.value, 10);
+                  if (!isNaN(idx) && ROUND_4_TEMPLATES[idx]) {
+                    handleLoadTemplate(ROUND_4_TEMPLATES[idx]);
+                  }
+                }}
+                defaultValue=""
+                className="px-3.5 py-2 rounded-xl bg-indigo-800 hover:bg-indigo-700 text-white font-bold text-xs transition-all border border-indigo-500 shadow-xs focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
+              >
+                <option value="" disabled>
+                  📋 Load 1 of 13 Standard Templates...
+                </option>
+                {ROUND_4_TEMPLATES.map((tpl, i) => (
+                  <option key={i} value={i}>
+                    {i + 1}. {tpl.name}
+                  </option>
+                ))}
+              </select>
+
               <button
                 type="button"
-                onClick={handleLoadLibraryTemplate}
-                className="px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-xs transition-all border border-indigo-500 shadow-xs"
+                onClick={handlePreFillAll13R4Questions}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all border border-amber-400 shadow-xs flex items-center gap-1.5"
               >
-                📚 Load Library Borrow Template
-              </button>
-              <button
-                type="button"
-                onClick={handleLoadShipmentTemplate}
-                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all border border-amber-400 shadow-xs"
-              >
-                🚢 Load Shipment Template
+                <Sparkles className="w-3.5 h-3.5" /> Pre-fill All 13 Standard Challenges
               </button>
             </div>
           </div>

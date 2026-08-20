@@ -42,6 +42,30 @@ export async function getWorkflowChallengesByEvent(req: any, res: Response) {
   }
 }
 
+export async function updateWorkflowChallenge(req: AuthenticatedAdminRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const { title, image_urls } = req.body;
+    if (!Array.isArray(image_urls) || image_urls.length < 2) {
+      return res.status(400).json({ error: 'image_urls (array of at least 2 URLs) required' });
+    }
+
+    const sanitizedUrls = image_urls.map((u: string) => cleanImagePath(u));
+
+    const { data: challenge, error } = await supabase
+      .from('workflow_challenges')
+      .update({ title: title || 'Workflow Sequence Challenge', image_urls: sanitizedUrls })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(challenge);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+
 export async function deleteWorkflowChallenge(req: AuthenticatedAdminRequest, res: Response) {
   try {
     const { id } = req.params;
@@ -52,3 +76,4 @@ export async function deleteWorkflowChallenge(req: AuthenticatedAdminRequest, re
     return res.status(500).json({ error: error.message });
   }
 }
+
