@@ -227,11 +227,10 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
       const { data: questions } = await supabase
         .from('quiz_questions')
         .select('id, question_text, options')
-        .eq('event_id', slot.event_id)
-        .not('question_text', 'like', '__%');
+        .eq('event_id', slot.event_id);
 
       const validQuizQuestions = (questions || []).filter(
-        (q) => q.question_text && !q.question_text.startsWith('__') && Array.isArray(q.options) && typeof q.options[0] === 'string'
+        (q) => q.question_text && !q.question_text.startsWith('__') && Array.isArray(q.options)
       );
 
       if (!validQuizQuestions || validQuizQuestions.length === 0) {

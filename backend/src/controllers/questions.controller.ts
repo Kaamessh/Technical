@@ -29,13 +29,12 @@ export async function getQuizQuestionsByEvent(req: any, res: Response) {
       .from('quiz_questions')
       .select('*')
       .eq('event_id', eventId)
-      .not('question_text', 'like', '__%')
       .order('created_at', { ascending: true });
 
     if (error) return res.status(500).json({ error: error.message });
-    // Defensive client filter as backup
+    // Filter out internal config rows (__PROBLEM_STATEMENTS__, __DECODE_POOL__, etc.)
     const sanitized = (questions || []).filter(
-      (q) => q.question_text && !q.question_text.startsWith('__') && Array.isArray(q.options) && typeof q.options[0] === 'string'
+      (q) => q.question_text && !q.question_text.startsWith('__') && Array.isArray(q.options)
     );
     return res.json(sanitized);
   } catch (error: any) {
