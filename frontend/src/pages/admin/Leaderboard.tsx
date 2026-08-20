@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../lib/apiClient';
 import { LeaderboardTable, LeaderboardEntry } from '../../components/LeaderboardTable';
-import { Trophy, Globe, Layers, RefreshCw, Settings, Calculator, ShieldCheck, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import {
+  Trophy,
+  Globe,
+  Layers,
+  RefreshCw,
+  Settings,
+  Calculator,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Key,
+  FolderGit2,
+  Sparkles,
+  Binary,
+  BarChart2,
+  FileText,
+  Edit3,
+} from 'lucide-react';
 
 export const AdminLeaderboard: React.FC = () => {
   const [events, setEvents] = useState<any[]>([]);
@@ -11,6 +29,11 @@ export const AdminLeaderboard: React.FC = () => {
 
   const [standings, setStandings] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Team Breakdown Modal State
+  const [showTeamBreakdownModal, setShowTeamBreakdownModal] = useState(false);
+  const [teamBreakdownData, setTeamBreakdownData] = useState<any | null>(null);
+  const [loadingTeamBreakdown, setLoadingTeamBreakdown] = useState(false);
 
   // Task Settings State
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -128,6 +151,21 @@ export const AdminLeaderboard: React.FC = () => {
     }
   };
 
+  const handleOpenTeamDetails = async (teamId: string, teamName: string) => {
+    setShowTeamBreakdownModal(true);
+    setLoadingTeamBreakdown(true);
+    setTeamBreakdownData(null);
+    try {
+      const res = await apiClient.get(`/points/team-breakdown/${teamId}`);
+      setTeamBreakdownData(res.data);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.error || 'Failed to load team breakdown');
+    } finally {
+      setLoadingTeamBreakdown(false);
+    }
+  };
+
   const handleOpenAdjustModal = (teamId: string, teamName: string, currentTotalPoints: number) => {
     setAdjustingTeam({ id: teamId, name: teamName, currentPoints: currentTotalPoints });
     setTargetTotalPoints(currentTotalPoints);
@@ -161,6 +199,9 @@ export const AdminLeaderboard: React.FC = () => {
       setAdjustingTeam(null);
       setAdjustReason('');
       fetchLeaderboard();
+      if (showTeamBreakdownModal && teamBreakdownData?.team?.id === adjustingTeam.id) {
+        handleOpenTeamDetails(adjustingTeam.id, adjustingTeam.name);
+      }
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to adjust points');
     }
@@ -285,7 +326,12 @@ export const AdminLeaderboard: React.FC = () => {
       {loading ? (
         <div className="py-12 text-center text-slate-400">Loading standings...</div>
       ) : (
-        <LeaderboardTable entries={standings} isAdmin={true} onAdjustPoints={handleOpenAdjustModal} />
+        <LeaderboardTable
+          entries={standings}
+          isAdmin={true}
+          onAdjustPoints={handleOpenAdjustModal}
+          onViewTeamDetails={handleOpenTeamDetails}
+        />
       )}
 
       {/* MODAL 1: EDIT P_MAX SETTINGS */}
@@ -598,6 +644,285 @@ export const AdminLeaderboard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: DETAILED TEAM SCORE BREAKDOWN & CALCULATION */}
+      {showTeamBreakdownModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in">
+          <div className="card max-w-5xl w-full p-6 shadow-2xl max-h-[90vh] flex flex-col bg-white border border-slate-200">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-xl border border-indigo-100">
+                  {teamBreakdownData?.team?.team_name?.charAt(0)?.toUpperCase() || 'T'}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-2xl font-black text-slate-900">
+                      {teamBreakdownData?.team?.team_name || 'Team Details'}
+                    </h3>
+                    <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-extrabold">
+                      {teamBreakdownData?.team?.slot_code || 'SLOT'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Slot Size: <strong>{teamBreakdownData?.team?.n_participants || 1} Teams</strong> | Detailed score calculation audit
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 block">Total Score</span>
+                  <span className="font-mono text-2xl font-black text-indigo-600">
+                    {teamBreakdownData?.team?.total_points ?? 0} <span className="text-xs text-slate-400 font-sans">pts</span>
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowTeamBreakdownModal(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors font-bold text-sm ml-2"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {loadingTeamBreakdown ? (
+              <div className="py-16 text-center text-slate-400 font-bold">
+                Loading detailed team scoring breakdown...
+              </div>
+            ) : !teamBreakdownData ? (
+              <div className="py-16 text-center text-rose-500 font-bold">
+                Could not load scoring data for this team.
+              </div>
+            ) : (
+              <div className="overflow-y-auto flex-1 py-4 space-y-6 pr-1">
+                {/* Scoring Formula Explainer Box */}
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-4 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span className="text-slate-700 font-medium">
+                      Fair Slot Normalization Formula: <code className="font-bold text-indigo-700 font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">Score = round( P_max × (N - rank + 1) / N )</code>
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-500 shrink-0 font-bold">
+                    N = {teamBreakdownData.team.n_participants}
+                  </span>
+                </div>
+
+                {/* Round-by-Round Calculation Table */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
+                    <BarChart2 className="w-4 h-4 text-indigo-600" /> Round-by-Round Score & Formula Breakdown
+                  </h4>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="bg-slate-100 text-slate-600 font-bold">
+                        <tr>
+                          <th className="py-2.5 px-3.5">Round / Task</th>
+                          <th className="py-2.5 px-3 text-center">Status</th>
+                          <th className="py-2.5 px-3 text-center">Slot Rank</th>
+                          <th className="py-2.5 px-3 text-center">P_max</th>
+                          <th className="py-2.5 px-3">Exact Calculation</th>
+                          <th className="py-2.5 px-3.5 text-right">Points Earned</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {teamBreakdownData.rounds.map((r: any) => (
+                          <tr key={r.round_number} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-3 px-3.5">
+                              <span className="font-bold text-slate-900 block">{r.round_name}</span>
+                              {r.completed_at && (
+                                <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                                  <Clock className="w-3 h-3 text-slate-400" />
+                                  {new Date(r.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              {r.status === 'completed' ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200">
+                                  <CheckCircle2 className="w-3 h-3" /> Done
+                                </span>
+                              ) : r.status === 'in_progress' ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-bold border border-amber-200">
+                                  In Progress
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 font-medium">
+                                  Pending
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-center font-mono font-bold text-slate-700">
+                              {r.rank ? (
+                                <span className="px-2 py-0.5 rounded bg-slate-100 text-indigo-700">
+                                  #{r.rank} / {r.n_participants}
+                                </span>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-center font-mono text-slate-600 font-bold">
+                              {r.p_max > 0 ? `${r.p_max} pts` : '0 pts'}
+                            </td>
+                            <td className="py-3 px-3 font-mono text-slate-600 text-[11px]">
+                              {r.formula_detail}
+                            </td>
+                            <td className="py-3 px-3.5 text-right font-mono font-black text-sm text-indigo-600">
+                              {r.points} <span className="text-[10px] text-slate-400 font-sans font-normal">pts</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Challenge Artifacts Summary (Round 5 Clues & Round 6 Problem) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Round 5 Decode Info */}
+                  <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-black uppercase text-indigo-900">
+                      <Key className="w-3.5 h-3.5 text-indigo-600" /> Round 5 Target Decode Key
+                    </div>
+                    {teamBreakdownData.decode_info ? (
+                      <div className="space-y-1 text-xs font-mono text-slate-700 bg-white p-3 rounded-lg border border-slate-200">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400 font-sans">Target Word:</span>
+                          <span className="font-bold text-indigo-700">{teamBreakdownData.decode_info.word}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400 font-sans">Alphabet Positions:</span>
+                          <span className="font-bold text-slate-900">
+                            [{teamBreakdownData.decode_info.letter_numbers?.join(', ')}]
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400 font-sans">Binary Code:</span>
+                          <span className="font-bold text-amber-600">
+                            {teamBreakdownData.decode_info.binary_clue} ({teamBreakdownData.decode_info.binary_decimal})
+                          </span>
+                        </div>
+                        <div className="flex justify-between pt-1 border-t border-slate-100">
+                          <span className="text-slate-400 font-sans">Expected Password:</span>
+                          <span className="font-black text-emerald-600">{teamBreakdownData.decode_info.expected_password}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-400 italic">No decode word assigned yet.</div>
+                    )}
+                  </div>
+
+                  {/* Round 6 Claimed Problem Statement */}
+                  <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-black uppercase text-emerald-900">
+                      <FolderGit2 className="w-3.5 h-3.5 text-emerald-600" /> Round 6 Assigned Problem
+                    </div>
+                    {teamBreakdownData.claimed_problem ? (
+                      <div className="space-y-1.5 text-xs bg-white p-3 rounded-lg border border-slate-200">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-emerald-700 font-bold text-[11px] px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200">
+                            Card #{teamBreakdownData.claimed_problem.card_number}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">
+                            {teamBreakdownData.claimed_problem.category}
+                          </span>
+                        </div>
+                        <h5 className="font-extrabold text-slate-900 text-sm">
+                          {teamBreakdownData.claimed_problem.title}
+                        </h5>
+                        <p className="text-[11px] text-slate-600 line-clamp-2">
+                          {teamBreakdownData.claimed_problem.description}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-400 italic">No problem statement claimed yet.</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Points Ledger Audit Trail */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-indigo-600" /> Points Ledger History ({teamBreakdownData.ledger.length} entries)
+                  </h4>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="bg-slate-100 text-slate-600 font-bold">
+                        <tr>
+                          <th className="py-2 px-3">Timestamp</th>
+                          <th className="py-2 px-3 text-center">Round</th>
+                          <th className="py-2 px-3">Audit Reason</th>
+                          <th className="py-2 px-3 text-right">Points</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {teamBreakdownData.ledger.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="py-4 text-center text-slate-400">No ledger entries recorded.</td>
+                          </tr>
+                        ) : (
+                          teamBreakdownData.ledger.map((item: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-slate-50">
+                              <td className="py-2 px-3 text-slate-500 font-mono text-[11px]">
+                                {new Date(item.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                              </td>
+                              <td className="py-2 px-3 text-center font-mono font-bold">
+                                {item.round_number ? `R${item.round_number}` : '-'}
+                              </td>
+                              <td className="py-2 px-3 text-slate-700">
+                                {item.reason?.includes('MANUAL_OVERRIDE') ? (
+                                  <span className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 text-[10px]">
+                                    {item.reason}
+                                  </span>
+                                ) : (
+                                  item.reason
+                                )}
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono font-bold">
+                                <span className={Number(item.points) >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                                  {Number(item.points) >= 0 ? `+${item.points}` : item.points} pts
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions Footer */}
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (teamBreakdownData?.team) {
+                    handleOpenAdjustModal(
+                      teamBreakdownData.team.id,
+                      teamBreakdownData.team.team_name,
+                      teamBreakdownData.team.total_points
+                    );
+                  }
+                }}
+                className="btn-secondary text-xs py-2 gap-1.5 flex items-center font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+              >
+                <Edit3 className="w-3.5 h-3.5" /> Adjust Points for this Team
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowTeamBreakdownModal(false)}
+                className="btn-primary text-xs py-2 px-5 font-bold"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

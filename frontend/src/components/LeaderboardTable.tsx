@@ -15,6 +15,7 @@ interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
   currentTeamId?: string;
   onAdjustPoints?: (teamId: string, teamName: string, currentTotalPoints: number) => void;
+  onViewTeamDetails?: (teamId: string, teamName: string) => void;
   isAdmin?: boolean;
 }
 
@@ -22,6 +23,7 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
   entries,
   currentTeamId,
   onAdjustPoints,
+  onViewTeamDetails,
   isAdmin = false,
 }) => {
   const getRankBadge = (rank: number) => {
@@ -89,7 +91,21 @@ export const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900">{entry.team_name}</span>
+                        {isAdmin && onViewTeamDetails ? (
+                          <button
+                            type="button"
+                            onClick={() => onViewTeamDetails(entry.team_id, entry.team_name)}
+                            className="font-extrabold text-indigo-600 hover:text-indigo-900 hover:underline flex items-center gap-1.5 group text-left cursor-pointer"
+                            title="Click to view detailed score breakdown and calculation formula"
+                          >
+                            <span>{entry.team_name}</span>
+                            <span className="text-[10px] font-sans font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                              Details 🔍
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="font-bold text-slate-900">{entry.team_name}</span>
+                        )}
                         {isSelf && (
                           <span className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-600 text-white uppercase font-bold">
                             YOU
