@@ -47,6 +47,9 @@ export const Navbar: React.FC = () => {
               </>
             ) : (
               <>
+                <Link to="/team/play" className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 transition-colors">
+                  <span>⚡ Challenge Arena</span>
+                </Link>
                 <Link to="/team/leaderboard" className="text-sm font-medium text-slate-600 hover:text-indigo-600 flex items-center gap-1.5 transition-colors">
                   <Trophy className="w-4 h-4" /> Rank
                 </Link>

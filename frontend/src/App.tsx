@@ -15,6 +15,7 @@ import { AdminTeams } from './pages/admin/Teams';
 import { TeamRegister } from './pages/user/Register';
 import { TeamLogin } from './pages/user/Login';
 import { SlotJoin } from './pages/user/SlotJoin';
+import { TeamPlayRouter } from './pages/user/TeamPlayRouter';
 import { Round1Quiz } from './pages/user/Round1Quiz';
 import { Round2Workflow } from './pages/user/Round2Workflow';
 import { Round3AiOrReal } from './pages/user/Round3AiOrReal';
@@ -123,7 +124,7 @@ export const AppRoutes: React.FC = () => {
             path="/team/play"
             element={
               <RequireAuth role="team">
-                <Round1Quiz />
+                <TeamPlayRouter />
               </RequireAuth>
             }
           />

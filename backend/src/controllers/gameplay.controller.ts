@@ -1082,3 +1082,65 @@ export async function claimRound6Card(req: AuthenticatedTeamRequest, res: Respon
     return res.status(500).json({ error: error.message });
   }
 }
+
+// TEAM CURRENT ROUND STATUS & RESUME ROUTE (Independent Multi-Slot Isolation)
+export async function getTeamStatus(req: AuthenticatedTeamRequest, res: Response) {
+  try {
+    const teamId = req.team?.id;
+    if (!teamId) return res.status(400).json({ error: 'Team ID required' });
+
+    // Fetch team record
+    const { data: team } = await supabase
+      .from('teams')
+      .select('id, team_name, slot_id, event_id')
+      .eq('id', teamId)
+      .single();
+
+    if (!team || !team.slot_id) {
+      return res.json({
+        slot_id: null,
+        current_round: 0,
+        route: '/team/join-slot',
+        status: 'no_slot',
+      });
+    }
+
+    // Fetch team progress across all rounds
+    const { data: progress } = await supabase
+      .from('team_round_progress')
+      .select('round_number, status')
+      .eq('team_id', teamId);
+
+    const completedRounds = new Set(
+      (progress || [])
+        .filter((p) => p.status === 'completed')
+        .map((p) => Number(p.round_number))
+    );
+
+    let activeRound = 1;
+    if (completedRounds.has(5) || completedRounds.has(6)) {
+      activeRound = 6;
+    } else if (completedRounds.has(4)) {
+      activeRound = 5;
+    } else if (completedRounds.has(3)) {
+      activeRound = 4;
+    } else if (completedRounds.has(2)) {
+      activeRound = 3;
+    } else if (completedRounds.has(1)) {
+      activeRound = 2;
+    } else {
+      activeRound = 1;
+    }
+
+    return res.json({
+      slot_id: team.slot_id,
+      current_round: activeRound,
+      route: `/team/round-${activeRound}`,
+      status: 'active',
+      completed_rounds: Array.from(completedRounds),
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+}
+

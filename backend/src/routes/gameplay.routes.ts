@@ -12,6 +12,7 @@ import {
   verifyRound5Password,
   getRound6Cards,
   claimRound6Card,
+  getTeamStatus,
 } from '../controllers/gameplay.controller';
 import { authTeamMiddleware } from '../middlewares/authTeam.middleware';
 
@@ -20,6 +21,7 @@ const router = Router();
 // Protect all gameplay routes with team middleware
 router.use(authTeamMiddleware);
 
+router.get('/team-status', getTeamStatus);
 router.get('/round1/current', getRound1Current);
 router.post('/round1/answer', submitRound1Answer);
 
