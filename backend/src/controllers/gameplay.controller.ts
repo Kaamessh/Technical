@@ -777,14 +777,16 @@ export async function verifyRound5Password(req: AuthenticatedTeamRequest, res: R
 
     if (!decodeData) return res.status(404).json({ error: 'Team decode data not found' });
 
-    const binaryDecimal = parseInt(decodeData.binary_clue, 2);
-    const expectedPassword = `${binaryDecimal}${decodeData.word}`.toLowerCase().trim();
-    const submittedClean = String(password).toLowerCase().trim();
+    const cleanBinary = decodeData.binary_clue ? decodeData.binary_clue.replace(/[^01]/g, '') : '';
+    const binaryDecimal = cleanBinary ? parseInt(cleanBinary, 2) : 0;
+    const cleanWord = (decodeData.word || '').toLowerCase().replace(/[^a-z]/g, '').trim();
+    const expectedPassword = `${binaryDecimal}${cleanWord}`;
+    const submittedClean = String(password).toLowerCase().replace(/\s+/g, '').trim();
 
     if (submittedClean !== expectedPassword) {
       return res.json({
         correct: false,
-        message: 'Invalid password. Check your binary conversion and decoded word!',
+        message: 'Invalid password. Check your binary to decimal conversion and decoded word (e.g. 885elephant)!',
       });
     }
 

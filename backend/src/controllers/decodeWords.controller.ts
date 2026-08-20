@@ -15,14 +15,15 @@ function wordToLetterNumbers(word: string): number[] {
   return result;
 }
 
+function binaryToDecimal(binaryStr: string): number {
+  const clean = binaryStr.replace(/[^01]/g, '');
+  return clean ? parseInt(clean, 2) : 0;
+}
+
 function calculateFinalPassword(binaryClue: string, targetWord: string): string {
-  const chunks = binaryClue.trim().split(/\s+/);
-  let prefix = '';
-  for (const chunk of chunks) {
-    const dec = parseInt(chunk, 2);
-    if (!isNaN(dec)) prefix += dec.toString();
-  }
-  return `${prefix}${targetWord}`.toLowerCase();
+  const dec = binaryToDecimal(binaryClue);
+  const cleanWord = targetWord.trim().toLowerCase().replace(/[^a-z]/g, '');
+  return `${dec}${cleanWord}`;
 }
 
 // Get the pool for an event

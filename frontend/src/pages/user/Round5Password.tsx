@@ -126,9 +126,9 @@ export const Round5Password: React.FC = () => {
                   <Sparkles className="w-4 h-4 text-emerald-400" /> Unlock Instructions
                 </div>
                 <ul className="text-xs text-slate-300 font-sans space-y-1.5 list-disc list-inside">
-                  <li>Convert the <strong>Binary Clue String</strong> into its decimal number.</li>
-                  <li>Combine the decimal number with your decoded <strong>Target Word</strong>.</li>
-                  <li>Type your combined password below and click <strong>Un-Lock Event Finale</strong>.</li>
+                  <li><strong>Step 1:</strong> Convert the <strong>Binary Clue</strong> above into its decimal number (e.g. <code className="text-amber-400 font-mono">1101110101</code> = <code className="text-amber-400 font-mono">885</code>).</li>
+                  <li><strong>Step 2:</strong> Decode your team's puzzle letter numbers from Rounds 1–4 into your <strong>Target Word</strong> (e.g. <code className="text-indigo-400 font-mono">5,12,5,16,8,1,14,20</code> = <code className="text-indigo-400 font-mono">ELEPHANT</code>).</li>
+                  <li><strong>Step 3:</strong> Combine them into <code className="text-emerald-400 font-mono">[Number][Word]</code> (e.g. <code className="text-emerald-400 font-mono">885elephant</code>).</li>
                 </ul>
               </div>
             </div>
@@ -146,13 +146,18 @@ export const Round5Password: React.FC = () => {
                   required
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="Enter decoded password..."
-                  className="w-full px-5 py-4 rounded-xl bg-slate-950 border-2 border-emerald-500/50 text-white font-mono text-xl font-bold tracking-wider focus:outline-none focus:border-emerald-400 transition-all placeholder-slate-600"
+                  placeholder="e.g. 885elephant or 885ELEPHANT"
+                  className="w-full px-5 py-4 rounded-xl bg-slate-950 border-2 border-emerald-500/50 text-white font-mono text-xl font-bold tracking-wider focus:outline-none focus:border-emerald-400 transition-all placeholder-slate-600 uppercase sm:normal-case"
                 />
               </div>
-              <span className="text-[11px] text-slate-500 mt-2 block font-sans">
-                Format: <code className="text-emerald-400 font-mono">[DecimalValue][TargetWord]</code> (case-insensitive)
-              </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mt-2 text-[11px] text-slate-500 font-sans">
+                <span>
+                  Format: <code className="text-emerald-400 font-mono">[DecimalValue][TargetWord]</code>
+                </span>
+                <span className="text-amber-400 font-medium">
+                  ✓ Case-Free (small or capital letters accepted)
+                </span>
+              </div>
             </div>
 
             <button

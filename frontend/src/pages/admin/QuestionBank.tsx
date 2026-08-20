@@ -1106,39 +1106,117 @@ export const QuestionBank: React.FC = () => {
       {/* TAB 5: DECODE WORDS */}
       {activeTab === 5 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="card h-fit">
-            <h3 className="text-base font-extrabold text-slate-900 mb-4">Add to Target Word Pool</h3>
+          <div className="card h-fit space-y-4">
+            <h3 className="text-base font-extrabold text-slate-900">Add to Target Word Pool</h3>
             <form onSubmit={handleAddR5} className="space-y-4">
+              {/* Target Word Input with Live Alphabet Numbers */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Binary Clue
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={r5BinaryClue}
-                  onChange={(e) => setR5BinaryClue(e.target.value)}
-                  placeholder="e.g. 1111 1111"
-                  className="input-field text-sm font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Target Word
+                  Target Word (e.g. ELEPHANT)
                 </label>
                 <input
                   type="text"
                   required
                   value={r5TargetWord}
                   onChange={(e) => setR5TargetWord(e.target.value.toUpperCase())}
-                  placeholder="e.g. HOSPITAL"
-                  className="input-field text-sm font-mono uppercase"
+                  placeholder="e.g. ELEPHANT"
+                  className="input-field text-sm font-mono uppercase font-bold tracking-wider"
                 />
+
+                {/* Live Alphabet Position Conversion */}
+                {r5TargetWord.trim().length > 0 && (
+                  <div className="mt-2 p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-xl space-y-1.5 animate-in fade-in">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-700 block">
+                      Alphabet Position Numerical Values:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 font-mono text-xs">
+                      {r5TargetWord
+                        .toUpperCase()
+                        .replace(/[^A-Z]/g, '')
+                        .split('')
+                        .map((char, idx) => {
+                          const pos = char.charCodeAt(0) - 64;
+                          return (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 bg-white rounded-md border border-indigo-200 font-bold text-indigo-900 shadow-xs"
+                            >
+                              <strong>{char}</strong> = {pos}
+                            </span>
+                          );
+                        })}
+                    </div>
+                    <div className="text-[11px] text-slate-600 font-mono pt-1">
+                      Sequence: [
+                      {r5TargetWord
+                        .toUpperCase()
+                        .replace(/[^A-Z]/g, '')
+                        .split('')
+                        .map((char) => char.charCodeAt(0) - 64)
+                        .join(', ')}
+                      ]
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* Binary Clue Input with Live Decimal Conversion */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Binary Code (e.g. 1101110101)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={r5BinaryClue}
+                  onChange={(e) => setR5BinaryClue(e.target.value)}
+                  placeholder="e.g. 1101110101"
+                  className="input-field text-sm font-mono font-bold tracking-wider"
+                />
+
+                {/* Live Decimal Conversion */}
+                {r5BinaryClue.trim().length > 0 && (
+                  <div className="mt-2 p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-1 animate-in fade-in">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 block">
+                      Binary Decimal Equivalent:
+                    </span>
+                    <div className="flex items-center gap-2 font-mono">
+                      <span className="text-base font-black text-amber-700">
+                        {(() => {
+                          const clean = r5BinaryClue.replace(/[^01]/g, '');
+                          return clean ? parseInt(clean, 2) : 0;
+                        })()}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-sans">
+                        (Base-2 to Base-10 integer value)
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Live Combined Expected Password Preview */}
+              {r5TargetWord.trim() && r5BinaryClue.trim() && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 animate-in fade-in">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">
+                    Combined Expected Finale Password:
+                  </span>
+                  <div className="font-mono text-base font-black text-emerald-700 break-all">
+                    {(() => {
+                      const cleanBin = r5BinaryClue.replace(/[^01]/g, '');
+                      const dec = cleanBin ? parseInt(cleanBin, 2) : 0;
+                      const cleanW = r5TargetWord.toLowerCase().replace(/[^a-z]/g, '');
+                      return `${dec}${cleanW}`;
+                    })()}
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-sans block">
+                    (Validation is case-insensitive: member can enter uppercase or lowercase)
+                  </span>
+                </div>
+              )}
+
               <button type="submit" className="btn-primary w-full text-xs py-2.5 font-bold">
-                Save to Pool
+                Save to Decode Pool
               </button>
             </form>
           </div>
@@ -1146,20 +1224,66 @@ export const QuestionBank: React.FC = () => {
           <div className="lg:col-span-2 space-y-4">
             <h3 className="text-base font-extrabold text-slate-900">Decode Word Pool ({decodePool.length})</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {decodePool.map((w) => (
-                <div key={w.id} className="card p-4 border-slate-200 flex items-center justify-between">
-                  <div>
-                    <div className="font-mono text-sm font-extrabold text-indigo-600">{w.target_word}</div>
-                    <div className="font-mono text-xs text-slate-500 mt-0.5">Binary: {w.binary_clue}</div>
+              {decodePool.map((w) => {
+                const cleanBin = (w.binary_clue || '').replace(/[^01]/g, '');
+                const decVal = cleanBin ? parseInt(cleanBin, 2) : 0;
+                const cleanWord = (w.target_word || '').toLowerCase().replace(/[^a-z]/g, '');
+                const finalPass = `${decVal}${cleanWord}`;
+                const letters = (w.target_word || '')
+                  .toUpperCase()
+                  .replace(/[^A-Z]/g, '')
+                  .split('');
+
+                return (
+                  <div key={w.id} className="card p-5 border-slate-200 flex flex-col justify-between gap-3 hover:border-indigo-200 transition-all">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-mono text-lg font-black text-indigo-700 tracking-wide">
+                          {w.target_word}
+                        </div>
+
+                        {/* Letter positions */}
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {letters.map((char: string, idx: number) => {
+                            const pos = char.charCodeAt(0) - 64;
+                            return (
+                              <span
+                                key={idx}
+                                className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-mono font-bold text-slate-700"
+                              >
+                                {char}={pos}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteR5(w.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
+                        title="Delete Word"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-100 font-mono text-xs">
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span className="text-[11px] font-sans font-bold text-slate-400">Binary Clue:</span>
+                        <span className="font-bold text-slate-800 tracking-wider">{w.binary_clue}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span className="text-[11px] font-sans font-bold text-slate-400">Binary Decimal:</span>
+                        <span className="font-extrabold text-amber-600">{decVal}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-200 text-emerald-800">
+                        <span className="text-[11px] font-sans font-bold text-slate-400">Final Password:</span>
+                        <span className="font-black text-emerald-600">{finalPass}</span>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteR5(w.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
