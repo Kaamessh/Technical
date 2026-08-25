@@ -172,9 +172,8 @@ export const Round1Quiz: React.FC = () => {
           } else {
             fetchCurrentQuestion();
           }
-        }, 2000);
+        }, 1200);
       } else if (res.data.won_by_other) {
-        // ANOTHER TEAM WON FIRST -> NO GREEN CLAIM FOR THIS TEAM, TRANSITION IMMEDIATELY
         setIsCorrect(false);
         setFeedback({
           message: `⚠️ QUESTION WON BY ANOTHER TEAM! TRANSITIONING TO NEXT QUESTION...`,
@@ -182,9 +181,14 @@ export const Round1Quiz: React.FC = () => {
         });
 
         setTimeout(() => {
-          setWaitingForNext(true);
-          setQuestion(null);
-          fetchCurrentQuestion();
+          if (res.data.decode_hint) {
+            setDecodePair(res.data.decode_hint);
+            setShowDecode(true);
+          } else if (res.data.completed) {
+            navigate('/team/round-2');
+          } else {
+            fetchCurrentQuestion();
+          }
         }, 1000);
       } else {
         // INCORRECT SELECTION
@@ -195,15 +199,18 @@ export const Round1Quiz: React.FC = () => {
         });
 
         setTimeout(() => {
-          setWaitingForNext(true);
-          setQuestion(null);
-          fetchCurrentQuestion();
-        }, 1500);
+          if (res.data.decode_hint) {
+            setDecodePair(res.data.decode_hint);
+            setShowDecode(true);
+          } else if (res.data.completed) {
+            navigate('/team/round-2');
+          } else {
+            fetchCurrentQuestion();
+          }
+        }, 1200);
       }
     } catch (err: any) {
       console.error(err);
-      setWaitingForNext(true);
-      setQuestion(null);
       fetchCurrentQuestion();
     } finally {
       setSubmitting(false);
