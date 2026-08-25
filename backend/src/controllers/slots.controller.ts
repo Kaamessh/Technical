@@ -4,7 +4,7 @@ import { AuthenticatedAdminRequest } from '../middlewares/authAdmin.middleware';
 import { AuthenticatedTeamRequest } from '../middlewares/authTeam.middleware';
 import { broadcastToSlot } from '../services/realtime.service';
 import { signTeamToken } from '../utils/jwt';
-import { setSlotLimits, getSlotLimits, getAllSlotLimits } from '../services/slotLimits.service';
+import { setSlotLimits, getSlotLimits, getAllSlotLimits, setSlotStartTime } from '../services/slotLimits.service';
 
 export async function createSlot(req: AuthenticatedAdminRequest, res: Response) {
   try {
@@ -220,6 +220,10 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
 
     // If starting Round 1 (transitioning to in_progress or starting queue), populate queue
     if (status === 'in_progress' && (slot.status === 'scheduled' || slot.status === 'open')) {
+      const startTimeIso = new Date().toISOString();
+      const durationSeconds = 1200; // 20 minutes for the event
+      await setSlotStartTime(id, startTimeIso, durationSeconds, slot.event_id);
+
       const { data: teams } = await supabase.from('teams').select('id').eq('slot_id', id);
       const teamCount = teams ? teams.length : 1;
       const queueLength = Math.max(1, teamCount - 1);
@@ -248,7 +252,7 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
           question_id: q.id,
           sequence_order: idx + 1,
           status: idx === 0 ? 'live' : 'pending',
-          live_started_at: idx === 0 ? new Date().toISOString() : null,
+          live_started_at: idx === 0 ? startTimeIso : null,
         }));
 
         const { error: insertErr } = await supabase.from('slot_question_queue').insert(queuePayload);
@@ -260,11 +264,15 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
           await broadcastToSlot(id, 'round:start_countdown', {
             slot_id: id,
             countdown_seconds: 3,
+            start_time: startTimeIso,
+            duration_seconds: durationSeconds,
           });
 
           await broadcastToSlot(id, 'question:live', {
             slot_id: id,
             sequence_order: 1,
+            start_time: startTimeIso,
+            duration_seconds: durationSeconds,
           });
         }
       }

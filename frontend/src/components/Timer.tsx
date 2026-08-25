@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useSlotTimer } from '../context/SlotTimerContext';
 import { Clock } from 'lucide-react';
 
 interface TimerProps {
@@ -8,32 +9,34 @@ interface TimerProps {
   isActive?: boolean;
 }
 
-export const Timer: React.FC<TimerProps> = ({ initialSeconds = 0, onTick, isCountUp = true, isActive = true }) => {
-  const [seconds, setSeconds] = useState(initialSeconds);
+export const Timer: React.FC<TimerProps> = () => {
+  const { formattedTime, remainingSeconds, isStarted } = useSlotTimer();
 
-  useEffect(() => {
-    if (!isActive) return;
-    const interval = setInterval(() => {
-      setSeconds((prev) => {
-        const next = isCountUp ? prev + 1 : Math.max(0, prev - 1);
-        if (onTick) onTick(next);
-        return next;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isCountUp, onTick, isActive]);
-
-  const formatTime = (totalSec: number) => {
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  // Color dynamics:
+  // > 5m: Amber/Emerald
+  // 2m - 5m: Amber
+  // < 2m: Rose with pulse
+  const isUrgent = remainingSeconds <= 120 && isStarted;
+  const isWarning = remainingSeconds <= 300 && remainingSeconds > 120 && isStarted;
 
   return (
-    <div className="inline-flex items-center gap-2 bg-slate-900 text-amber-400 font-mono font-bold px-4 py-2 rounded-lg border border-slate-800 shadow-inner">
-      <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
-      <span className="text-lg tracking-widest">{formatTime(seconds)}</span>
+    <div
+      className={`inline-flex items-center gap-2.5 font-mono font-black px-4 py-2 rounded-xl border shadow-xs transition-all ${
+        isUrgent
+          ? 'bg-rose-950/90 text-rose-300 border-rose-600 animate-pulse ring-2 ring-rose-500/50'
+          : isWarning
+          ? 'bg-amber-950/90 text-amber-300 border-amber-500'
+          : 'bg-slate-900 text-amber-400 border-slate-800'
+      }`}
+      title="Slot 20-Minute Total Time Limit"
+    >
+      <Clock className={`w-4 h-4 ${isUrgent ? 'text-rose-400 animate-spin' : 'text-amber-400 animate-pulse'}`} />
+      <div className="flex flex-col items-start leading-none">
+        <span className="text-xs uppercase font-sans font-extrabold tracking-wider text-slate-400 text-[9px] mb-0.5">
+          Time Limit (20m)
+        </span>
+        <span className="text-base tracking-widest">{formattedTime}</span>
+      </div>
     </div>
   );
 };

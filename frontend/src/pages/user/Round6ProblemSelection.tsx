@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { apiClient } from '../../lib/apiClient';
 import { supabaseRealtime } from '../../lib/supabaseRealtime';
 import { ConfettiEffect } from '../../components/ConfettiEffect';
+import { Timer } from '../../components/Timer';
 import {
   FolderGit2,
   CheckCircle2,
@@ -159,17 +160,19 @@ export const Round6ProblemSelection: React.FC = () => {
       {triggerConfetti && <ConfettiEffect />}
 
       {/* Header */}
-      <div className="text-center max-w-2xl mx-auto mb-8">
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 mb-3">
-          <Sparkles className="w-3.5 h-3.5" /> ROUND 6 — PROBLEM STATEMENT SELECTION
-        </span>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight sm:text-4xl">
-          Claim Your Challenge
-        </h1>
-        <p className="text-slate-500 text-sm mt-2 font-medium">
-          Choose a mystery card below to reveal and lock in your team's assigned problem statement.
-          Each team claims exactly 1 statement (no points awarded).
-        </p>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+        <div>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 mb-2">
+            <Sparkles className="w-3.5 h-3.5" /> ROUND 6 — PROBLEM STATEMENT SELECTION
+          </span>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight sm:text-4xl">
+            Claim Your Challenge
+          </h1>
+          <p className="text-slate-500 text-sm mt-1 font-medium">
+            Choose a mystery card below to reveal and lock in your team's assigned problem statement.
+          </p>
+        </div>
+        <Timer />
       </div>
 
       {/* Feedback Banner */}

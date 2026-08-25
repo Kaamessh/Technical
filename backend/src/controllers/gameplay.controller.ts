@@ -4,7 +4,7 @@ import { AuthenticatedTeamRequest } from '../middlewares/authTeam.middleware';
 import { completeTeamRound, calculateTaskScore } from '../services/scoring.service';
 import { broadcastToSlot } from '../services/realtime.service';
 import { getRoundQuestionLimit, getPMaxForRound } from '../services/taskSettings.service';
-import { getSlotLimits } from '../services/slotLimits.service';
+import { getSlotLimits, getSlotTimerState } from '../services/slotLimits.service';
 
 // In-Memory Fast Atomic First-Answer Claim Lock (Reduces DB locks to <1ms)
 const wonQuestionLocks = new Set<string>();
@@ -69,6 +69,8 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
         .limit(1),
     ]);
 
+    const timerState = await getSlotTimerState(slotId);
+
     const totalSlotTeams = slotTeams ? slotTeams.length : 1;
 
     if (liveItem && liveItem.quiz_questions) {
@@ -84,11 +86,12 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
         if (totalSlotTeams === 1) {
           await completeTeamRound(teamId!, slotId!, 1, 60, 0, 'completed single team question');
           const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
-          return res.json({ completed: true, message: 'Single team slot Round 1 completed', decode_hint: decodeHint });
+          return res.json({ completed: true, message: 'Single team slot Round 1 completed', decode_hint: decodeHint, timer: timerState });
         }
         return res.json({
           waiting_for_next: true,
           message: 'Incorrect choice submitted. Waiting for next question broadcast...',
+          timer: timerState,
         });
       }
 
@@ -96,6 +99,7 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
         queue_id: liveItem.id,
         sequence_order: liveItem.sequence_order,
         live_started_at: liveItem.live_started_at,
+        timer: timerState,
         question: {
           id: liveItem.quiz_questions.id,
           question_text: liveItem.quiz_questions.question_text,
@@ -105,7 +109,7 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
     }
 
     if (pendingItem && pendingItem.length > 0) {
-      return res.json({ waiting_for_next: true, message: 'Waiting for next question broadcast...' });
+      return res.json({ waiting_for_next: true, message: 'Waiting for next question broadcast...', timer: timerState });
     }
 
     const { data: totalQueue } = await supabase
@@ -1132,12 +1136,15 @@ export async function getTeamStatus(req: AuthenticatedTeamRequest, res: Response
       activeRound = 1;
     }
 
+    const timerState = await getSlotTimerState(team.slot_id);
+
     return res.json({
       slot_id: team.slot_id,
       current_round: activeRound,
       route: `/team/round-${activeRound}`,
       status: 'active',
       completed_rounds: Array.from(completedRounds),
+      timer: timerState,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

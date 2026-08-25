@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SlotTimerProvider } from './context/SlotTimerContext';
 import { Navbar } from './components/Navbar';
 
 import { AdminLogin } from './pages/admin/Login';
@@ -248,7 +249,9 @@ export function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <SlotTimerProvider>
+            <AppRoutes />
+          </SlotTimerProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>
