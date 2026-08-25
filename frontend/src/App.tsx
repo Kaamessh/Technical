@@ -12,6 +12,8 @@ import { QuestionBank } from './pages/admin/QuestionBank';
 import { AdminLeaderboard } from './pages/admin/Leaderboard';
 import { AdminSettings } from './pages/admin/Settings';
 import { AdminTeams } from './pages/admin/Teams';
+import { AdminMalpractice } from './pages/admin/Malpractice';
+import { MalpracticeWarningBanner } from './components/MalpracticeWarningBanner';
 
 import { TeamRegister } from './pages/user/Register';
 import { TeamLogin } from './pages/user/Login';
@@ -54,6 +56,7 @@ export const AppRoutes: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
+      <MalpracticeWarningBanner />
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
@@ -106,6 +109,14 @@ export const AppRoutes: React.FC = () => {
             element={
               <RequireAuth role="admin">
                 <AdminTeams />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/malpractice"
+            element={
+              <RequireAuth role="admin">
+                <AdminMalpractice />
               </RequireAuth>
             }
           />

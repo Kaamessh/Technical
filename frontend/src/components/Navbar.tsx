@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { BackButton } from './BackButton';
-import { Trophy, Shield, Users, LogOut, Award, Layers, HelpCircle } from 'lucide-react';
+import { Trophy, Shield, Users, LogOut, Award, Layers, HelpCircle, ShieldAlert } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -40,6 +40,9 @@ export const Navbar: React.FC = () => {
                 </Link>
                 <Link to="/admin/leaderboard" className="text-sm font-medium text-slate-600 hover:text-indigo-600 flex items-center gap-1.5 transition-colors">
                   <Trophy className="w-4 h-4" /> Leaderboard
+                </Link>
+                <Link to="/admin/malpractice" className="text-sm font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1.5 transition-colors bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
+                  <ShieldAlert className="w-4 h-4 text-rose-600" /> Malpractice
                 </Link>
                 <Link to="/admin/teams" className="text-sm font-medium text-slate-600 hover:text-indigo-600 flex items-center gap-1.5 transition-colors">
                   <Users className="w-4 h-4" /> Teams

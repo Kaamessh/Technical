@@ -16,6 +16,7 @@ import gameplayRoutes from './routes/gameplay.routes';
 import leaderboardRoutes from './routes/leaderboard.routes';
 import pointsRoutes from './routes/points.routes';
 import teamsAdminRoutes from './routes/teamsAdmin.routes';
+import securityRoutes from './routes/security.routes';
 import { errorHandler } from './middlewares/errorHandler.middleware';
 
 dotenv.config();
@@ -60,6 +61,7 @@ app.use('/api/gameplay', gameplayRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/points', pointsRoutes);
 app.use('/api/teams', teamsAdminRoutes);
+app.use('/api/security', securityRoutes);
 
 // Centralized Error Handler
 app.use(errorHandler);
