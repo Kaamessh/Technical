@@ -109,7 +109,7 @@ export const Round4DataChallenge: React.FC = () => {
         } else {
           fetchQuestion();
         }
-      }, 2000);
+      }, 1200);
     } catch (err: any) {
       console.error(err);
       fetchQuestion();

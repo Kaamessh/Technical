@@ -501,7 +501,7 @@ export async function getRound3Challenge(req: AuthenticatedTeamRequest, res: Res
   }
 }
 
-// ROUND 3: Submit choice (FAST PATH + ASYNC BOOKKEEPING)
+// ROUND 3: Submit choice (FAST, SYNCHRONOUS & RELIABLE)
 export async function submitRound3AiOrReal(req: AuthenticatedTeamRequest, res: Response) {
   try {
     const teamId = req.team?.id;
@@ -512,61 +512,54 @@ export async function submitRound3AiOrReal(req: AuthenticatedTeamRequest, res: R
       return res.status(400).json({ error: 'challenge_id and selected_side ("A" or "B") required' });
     }
 
-    // Fast-path fetch
-    const { data: challenge } = await supabase
-      .from('ai_or_real_challenges')
-      .select('correct_side')
-      .eq('id', challenge_id)
-      .single();
+    const [{ data: challenge }, slotLimits, { data: ledgerEntries }, { data: allChallenges }] = await Promise.all([
+      supabase.from('ai_or_real_challenges').select('correct_side').eq('id', challenge_id).single(),
+      slotId ? getSlotLimits(slotId) : Promise.resolve({ r3_limit: 1, r4_limit: 1, r6_limit: 6, started_at: null, duration_seconds: 1200 }),
+      supabase.from('points_ledger').select('reason').eq('team_id', teamId).eq('round_number', 3),
+      supabase.from('ai_or_real_challenges').select('id').eq('event_id', req.team?.event_id),
+    ]);
 
     if (!challenge) return res.status(404).json({ error: 'Challenge not found' });
 
     const isCorrect = challenge.correct_side === selected_side;
+    const r3Limit = slotLimits.r3_limit || getRoundQuestionLimit(3);
+    const maxAvailable = allChallenges ? allChallenges.length : 1;
+    const targetLimit = Math.min(r3Limit, maxAvailable);
 
-    // --- FAST PATH RESPONSE (<40ms) ---
-    // Instantly return answer result so frontend renders green/red highlight with zero lag!
-    res.json({
+    // Save points entry
+    await supabase.from('points_ledger').insert({
+      team_id: teamId,
+      round_number: 3,
+      points: isCorrect ? 10 : 0,
+      reason: `round3_attempt: ${challenge_id}`,
+    });
+
+    const completedAttempts = ledgerEntries
+      ? ledgerEntries.filter((l) => l.reason && l.reason.startsWith('round3_attempt:'))
+      : [];
+
+    const newCompletedCount = completedAttempts.length + 1;
+    const isRoundCompleted = newCompletedCount >= targetLimit;
+
+    let decodeHint: any = null;
+    let finalPoints = isCorrect ? 10 : 0;
+
+    if (isRoundCompleted) {
+      const compResult = await completeTeamRound(teamId!, slotId!, 3, time_taken || 10);
+      finalPoints = compResult.points;
+      decodeHint = await getTeamDecodeHintPair(teamId!, 3);
+    }
+
+    return res.json({
       correct: isCorrect,
       correct_side: challenge.correct_side,
-      completed: false,
-      has_next_question: true,
+      points: finalPoints,
+      completed: isRoundCompleted,
+      has_next_question: !isRoundCompleted,
+      decode_hint: decodeHint,
       message: isCorrect
         ? '🎉 SPOT ON! CORRECT AI IMAGE IDENTIFIED!'
         : '❌ WRONG SELECTION! THAT WAS A REAL IMAGE.',
-    });
-
-    // --- ASYNC BACKGROUND PATH (Non-blocking bookkeeping) ---
-    setImmediate(async () => {
-      try {
-        await supabase.from('points_ledger').insert({
-          team_id: teamId,
-          round_number: 3,
-          points: isCorrect ? 10 : 0,
-          reason: `round3_attempt: ${challenge_id}`,
-        });
-
-        const slotLimits = slotId ? await getSlotLimits(slotId) : { r3_limit: 1, r4_limit: 1 };
-        const r3Limit = slotLimits.r3_limit || getRoundQuestionLimit(3);
-
-        const [{ data: ledgerEntries }, { data: allChallenges }] = await Promise.all([
-          supabase.from('points_ledger').select('reason').eq('team_id', teamId).eq('round_number', 3),
-          supabase.from('ai_or_real_challenges').select('id').eq('event_id', req.team?.event_id),
-        ]);
-
-        const completedAttempts = ledgerEntries
-          ? ledgerEntries.filter((l) => l.reason && l.reason.startsWith('round3_attempt:'))
-          : [];
-
-        const completedCount = completedAttempts.length;
-        const maxAvailable = allChallenges ? allChallenges.length : 1;
-        const targetLimit = Math.min(r3Limit, maxAvailable);
-
-        if (completedCount >= targetLimit) {
-          await completeTeamRound(teamId!, slotId!, 3, time_taken || 10);
-        }
-      } catch (bgErr) {
-        console.error('Async Round 3 background bookkeeping error:', bgErr);
-      }
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -580,7 +573,7 @@ export async function getRound4Question(req: AuthenticatedTeamRequest, res: Resp
     const teamId = req.team?.id;
     const slotId = req.team?.slot_id;
 
-    const slotLimits = slotId ? await getSlotLimits(slotId) : { r3_limit: 1, r4_limit: 1 };
+    const slotLimits = slotId ? await getSlotLimits(slotId) : { r3_limit: 1, r4_limit: 1, r6_limit: 6, started_at: null, duration_seconds: 1200 };
     const r4Limit = slotLimits.r4_limit || getRoundQuestionLimit(4);
 
     const [{ data: progress }, { data: ledgerEntries }, { data: questions }] = await Promise.all([
@@ -672,7 +665,7 @@ export async function getRound4Question(req: AuthenticatedTeamRequest, res: Resp
   }
 }
 
-// ROUND 4: Answer submission (FAST PATH + ASYNC BOOKKEEPING)
+// ROUND 4: Answer submission (FAST, SYNCHRONOUS & RELIABLE)
 export async function submitRound4Answer(req: AuthenticatedTeamRequest, res: Response) {
   try {
     const teamId = req.team?.id;
@@ -683,59 +676,60 @@ export async function submitRound4Answer(req: AuthenticatedTeamRequest, res: Res
       return res.status(400).json({ error: 'question_id and selected_index required' });
     }
 
-    // Fast-path fetch
-    const { data: question } = await supabase
-      .from('data_challenge_questions')
-      .select('correct_index')
-      .eq('id', question_id)
-      .single();
+    const [{ data: question }, slotLimits, { data: ledgerEntries }, { data: allQuestions }] = await Promise.all([
+      supabase.from('data_challenge_questions').select('correct_index').eq('id', question_id).single(),
+      slotId ? getSlotLimits(slotId) : Promise.resolve({ r3_limit: 1, r4_limit: 1, r6_limit: 6, started_at: null, duration_seconds: 1200 }),
+      supabase.from('points_ledger').select('reason').eq('team_id', teamId).eq('round_number', 4),
+      supabase.from('data_challenge_questions').select('id').eq('event_id', req.team?.event_id),
+    ]);
 
     if (!question) return res.status(404).json({ error: 'Question not found' });
 
     const isCorrect = question.correct_index === selected_index;
-    const timeTakenSec = time_taken || 10;
+    const r4Limit = slotLimits.r4_limit || getRoundQuestionLimit(4);
+    const maxAvailable = allQuestions ? allQuestions.length : 1;
+    const targetLimit = Math.min(r4Limit, maxAvailable);
 
-    // --- FAST PATH RESPONSE (<40ms) ---
-    res.json({
-      correct: isCorrect,
-      correct_option_index: question.correct_index,
-      completed: false,
-      has_next_question: true,
-      message: isCorrect ? '🎉 Correct answer!' : '❌ Incorrect choice.',
+    // Record attempt
+    await supabase.from('points_ledger').insert({
+      team_id: teamId,
+      round_number: 4,
+      points: isCorrect ? 10 : 0,
+      reason: `round4_attempt: ${question_id}`,
     });
 
-    // --- ASYNC BACKGROUND PATH (Non-blocking bookkeeping) ---
-    setImmediate(async () => {
-      try {
-        await supabase.from('points_ledger').insert({
-          team_id: teamId,
-          round_number: 4,
-          points: isCorrect ? 10 : 0,
-          reason: `round4_attempt: ${question_id}`,
-        });
+    const completedAttempts = ledgerEntries
+      ? ledgerEntries.filter((l) => l.reason && l.reason.startsWith('round4_attempt:'))
+      : [];
 
-        const slotLimits = slotId ? await getSlotLimits(slotId) : { r3_limit: 1, r4_limit: 1, r6_limit: 6 };
-        const r4Limit = slotLimits.r4_limit || getRoundQuestionLimit(4);
+    const newCompletedCount = completedAttempts.length + 1;
+    const isRoundCompleted = newCompletedCount >= targetLimit;
 
-        const [{ data: ledgerEntries }, { data: allQuestions }] = await Promise.all([
-          supabase.from('points_ledger').select('reason').eq('team_id', teamId).eq('round_number', 4),
-          supabase.from('data_challenge_questions').select('id').eq('event_id', req.team?.event_id),
-        ]);
+    let decodeHint: any = null;
+    let binaryClue: any = null;
+    let finalPoints = isCorrect ? 10 : 0;
 
-        const completedAttempts = ledgerEntries
-          ? ledgerEntries.filter((l) => l.reason && l.reason.startsWith('round4_attempt:'))
-          : [];
+    if (isRoundCompleted) {
+      const compResult = await completeTeamRound(teamId!, slotId!, 4, time_taken || 10, isCorrect ? undefined : 0);
+      finalPoints = compResult.points;
+      const { data: decodeData } = await supabase
+        .from('team_decode_words')
+        .select('letter_numbers, binary_clue')
+        .eq('team_id', teamId)
+        .single();
+      decodeHint = Array.isArray(decodeData?.letter_numbers) ? (decodeData.letter_numbers as number[]).slice(6, 8) : null;
+      binaryClue = decodeData?.binary_clue || null;
+    }
 
-        const completedCount = completedAttempts.length;
-        const maxAvailable = allQuestions ? allQuestions.length : 1;
-        const targetLimit = Math.min(r4Limit, maxAvailable);
-
-        if (completedCount >= targetLimit) {
-          await completeTeamRound(teamId!, slotId!, 4, timeTakenSec, isCorrect ? undefined : 0);
-        }
-      } catch (bgErr) {
-        console.error('Async Round 4 background bookkeeping error:', bgErr);
-      }
+    return res.json({
+      correct: isCorrect,
+      correct_option_index: question.correct_index,
+      points: finalPoints,
+      completed: isRoundCompleted,
+      has_next_question: !isRoundCompleted,
+      decode_hint: decodeHint,
+      binary_clue: binaryClue,
+      message: isCorrect ? '🎉 Correct answer!' : '❌ Incorrect choice.',
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

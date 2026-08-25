@@ -24,40 +24,46 @@ export const SlotTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const navigate = useNavigate();
   const location = useLocation();
 
+  const slotKey = user?.slot_id || 'default_slot';
+
   const [startedAt, setStartedAt] = useState<string | null>(() => {
-    return localStorage.getItem(`slot_started_${user?.slot_id}`) || null;
+    return localStorage.getItem(`slot_started_${slotKey}`) || null;
   });
   const [durationSeconds, setDurationSeconds] = useState<number>(() => {
-    const saved = localStorage.getItem(`slot_duration_${user?.slot_id}`);
+    const saved = localStorage.getItem(`slot_duration_${slotKey}`);
     return saved ? Number(saved) : DEFAULT_DURATION;
   });
 
   const [remainingSeconds, setRemainingSeconds] = useState<number>(DEFAULT_DURATION);
-  const [isStarted, setIsStarted] = useState<boolean>(false);
+  const [isStarted, setIsStarted] = useState<boolean>(true);
   const [isExpired, setIsExpired] = useState<boolean>(false);
   const [showExpiredModal, setShowExpiredModal] = useState<boolean>(false);
 
   // Sync Timer from API / Realtime
   const syncTimer = useCallback(
     (startedAtIso: string | null, duration: number = DEFAULT_DURATION) => {
-      if (startedAtIso) {
-        setStartedAt(startedAtIso);
-        setDurationSeconds(duration);
-        if (user?.slot_id) {
-          localStorage.setItem(`slot_started_${user.slot_id}`, startedAtIso);
-          localStorage.setItem(`slot_duration_${user.slot_id}`, String(duration));
-        }
-      }
+      const startIso = startedAtIso || new Date().toISOString();
+      setStartedAt(startIso);
+      setDurationSeconds(duration);
+      localStorage.setItem(`slot_started_${slotKey}`, startIso);
+      localStorage.setItem(`slot_duration_${slotKey}`, String(duration));
     },
-    [user?.slot_id]
+    [slotKey]
   );
+
+  // Automatic self-start if on game round and startedAt is missing
+  useEffect(() => {
+    if (user?.role === 'team' && location.pathname.startsWith('/team/round-')) {
+      if (!startedAt) {
+        const nowIso = new Date().toISOString();
+        syncTimer(nowIso, DEFAULT_DURATION);
+      }
+    }
+  }, [user?.role, location.pathname, startedAt, syncTimer]);
 
   // Fetch initial timer state from team-status
   useEffect(() => {
     if (!user || user.role !== 'team' || !user.slot_id) {
-      setIsStarted(false);
-      setIsExpired(false);
-      setShowExpiredModal(false);
       return;
     }
 
@@ -68,9 +74,15 @@ export const SlotTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (!isMounted) return;
         if (res.data?.timer?.started_at) {
           syncTimer(res.data.timer.started_at, res.data.timer.duration_seconds || DEFAULT_DURATION);
+        } else if (!startedAt) {
+          syncTimer(new Date().toISOString(), DEFAULT_DURATION);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!startedAt) {
+          syncTimer(new Date().toISOString(), DEFAULT_DURATION);
+        }
+      });
 
     return () => {
       isMounted = false;
@@ -85,11 +97,9 @@ export const SlotTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const channel = supabaseRealtime
       .channel(channelName)
       .on('broadcast', { event: 'round:start_countdown' }, (payload: any) => {
-        if (payload?.payload?.start_time) {
-          syncTimer(payload.payload.start_time, payload.payload.duration_seconds || DEFAULT_DURATION);
-        } else {
-          syncTimer(new Date().toISOString(), DEFAULT_DURATION);
-        }
+        const startTime = payload?.payload?.start_time || new Date().toISOString();
+        const duration = payload?.payload?.duration_seconds || DEFAULT_DURATION;
+        syncTimer(startTime, duration);
       })
       .on('broadcast', { event: 'question:live' }, (payload: any) => {
         if (payload?.payload?.start_time) {
@@ -103,31 +113,22 @@ export const SlotTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, [user?.slot_id, syncTimer]);
 
-  // Local 1-second interval calculation (zero network overhead)
+  // High-performance local 1-second interval calculation (zero network overhead)
   useEffect(() => {
-    if (!startedAt) {
-      setIsStarted(false);
-      setRemainingSeconds(durationSeconds);
-      setIsExpired(false);
-      return;
-    }
-
-    const startMs = new Date(startedAt).getTime();
-    if (isNaN(startMs)) {
-      setIsStarted(false);
-      return;
-    }
+    const effectiveStart = startedAt || new Date().toISOString();
+    const startMs = new Date(effectiveStart).getTime();
+    const validStartMs = isNaN(startMs) ? Date.now() : startMs;
 
     setIsStarted(true);
 
     const updateRemaining = () => {
-      const elapsedSec = Math.floor((Date.now() - startMs) / 1000);
+      const elapsedSec = Math.floor((Date.now() - validStartMs) / 1000);
       const remaining = Math.max(0, durationSeconds - elapsedSec);
       setRemainingSeconds(remaining);
 
       if (remaining <= 0) {
         setIsExpired(true);
-        // Only show modal on game pages, not already on completed / leaderboard
+        // Only show modal on active game pages
         const isGamePage =
           location.pathname.startsWith('/team/round-') ||
           location.pathname === '/team/play';
