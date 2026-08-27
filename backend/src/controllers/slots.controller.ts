@@ -8,7 +8,7 @@ import { setSlotLimits, getSlotLimits, getAllSlotLimits, setSlotStartTime } from
 
 export async function createSlot(req: AuthenticatedAdminRequest, res: Response) {
   try {
-    const { event_id, slot_number, custom_code, r3_question_limit, r4_question_limit, r6_question_limit } = req.body;
+    const { event_id, slot_number, custom_code, r1_question_limit, r3_question_limit, r4_question_limit, r6_question_limit } = req.body;
     if (!event_id || !slot_number) {
       return res.status(400).json({ error: 'event_id and slot_number required' });
     }
@@ -31,16 +31,24 @@ export async function createSlot(req: AuthenticatedAdminRequest, res: Response) 
 
     if (error) return res.status(500).json({ error: error.message });
 
+    const r1Limit = Number(r1_question_limit) || 10;
     const r3Limit = Number(r3_question_limit) || 1;
     const r4Limit = Number(r4_question_limit) || 1;
     const r6Limit = Number(r6_question_limit) || 6;
-    await setSlotLimits(slot.id, r3Limit, r4Limit, event_id, r6Limit);
+    await setSlotLimits(slot.id, r3Limit, r4Limit, event_id, r6Limit, undefined, undefined, r1Limit);
 
     return res.status(201).json({
       ...slot,
+      r1_question_limit: r1Limit,
       r3_question_limit: r3Limit,
       r4_question_limit: r4Limit,
       r6_question_limit: r6Limit,
+      limits: {
+        r1_limit: r1Limit,
+        r3_limit: r3Limit,
+        r4_limit: r4Limit,
+        r6_limit: r6Limit,
+      },
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -63,6 +71,8 @@ export async function getSlotsByEvent(req: any, res: Response) {
 
     const slotsWithLimits = (slots || []).map((s) => ({
       ...s,
+      limits: limits[s.id] || { r1_limit: 10, r3_limit: 1, r4_limit: 1, r6_limit: 6 },
+      r1_question_limit: limits[s.id]?.r1_limit || 10,
       r3_question_limit: limits[s.id]?.r3_limit || 1,
       r4_question_limit: limits[s.id]?.r4_limit || 1,
       r6_question_limit: limits[s.id]?.r6_limit || 6,
@@ -85,6 +95,8 @@ export async function getSlotStatus(req: any, res: Response) {
     if (error || !slot) return res.status(404).json({ error: 'Slot not found' });
     return res.json({
       ...slot,
+      limits,
+      r1_question_limit: limits.r1_limit,
       r3_question_limit: limits.r3_limit,
       r4_question_limit: limits.r4_limit,
       r6_question_limit: limits.r6_limit,
@@ -255,8 +267,11 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
 
     return res.json({
       ...updatedSlot,
+      limits: finalLimits,
+      r1_question_limit: finalLimits.r1_limit,
       r3_question_limit: finalLimits.r3_limit,
       r4_question_limit: finalLimits.r4_limit,
+      r6_question_limit: finalLimits.r6_limit,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
