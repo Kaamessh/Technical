@@ -735,44 +735,57 @@ export const SlotManager: React.FC = () => {
                       </div>
 
                       {/* Selected Problem Statements Display Section */}
-                      <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 mb-4 space-y-2">
+                      <div className="bg-emerald-50/80 border-2 border-emerald-300 rounded-2xl p-3.5 mb-4 space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
-                            <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-[11px] font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                            <FileText className="w-4 h-4 text-emerald-600" />
                             <span>Problem Statements Chosen ({claims.length})</span>
                           </span>
                           {claims.length > 0 && (
                             <button
                               onClick={() => setClaimsModalSlot(slot)}
-                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline"
+                              className="text-[11px] font-extrabold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded-md border border-emerald-300 transition-colors"
                             >
-                              View Details
+                              View Full Modal ↗
                             </button>
                           )}
                         </div>
 
                         {claims.length === 0 ? (
-                          <div className="text-[11px] text-slate-400 font-medium italic bg-white p-2 rounded-lg border border-emerald-100 text-center">
+                          <div className="text-[11px] text-slate-400 font-medium italic bg-white p-2.5 rounded-xl border border-emerald-100 text-center">
                             No team has chosen a problem statement yet.
                           </div>
                         ) : (
-                          <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                             {claims.map((c: any, idx: number) => (
                               <div
                                 key={idx}
-                                className="text-xs bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs space-y-1"
+                                className="text-xs bg-white p-3 rounded-xl border border-emerald-200 shadow-xs space-y-1.5"
                               >
                                 <div className="flex items-center justify-between font-mono">
-                                  <span className="font-extrabold text-slate-900 text-[11px] bg-slate-100 px-2 py-0.5 rounded">
+                                  <span className="font-black text-slate-900 text-xs bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                                     👤 {c.team_name}
                                   </span>
-                                  <span className="text-emerald-700 font-black text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                    Card #{c.card_number || (c.card_index + 1)}
+                                  <span className="text-emerald-800 font-black text-[11px] bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+                                    Card #{c.card_number || (c.card_index !== undefined ? c.card_index + 1 : idx + 1)}
                                   </span>
                                 </div>
-                                <div className="font-bold text-slate-800 text-[11px] line-clamp-1">
-                                  {c.problem_title}
+
+                                <div className="font-extrabold text-slate-900 text-xs leading-snug">
+                                  {c.problem_title || 'Assigned Problem Statement'}
                                 </div>
+
+                                {c.category && (
+                                  <span className="inline-block text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                    {c.category}
+                                  </span>
+                                )}
+
+                                {c.description && (
+                                  <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-2 rounded-lg border border-slate-200">
+                                    {c.description}
+                                  </p>
+                                )}
                               </div>
                             ))}
                           </div>

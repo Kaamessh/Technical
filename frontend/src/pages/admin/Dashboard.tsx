@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../lib/apiClient';
-import { Plus, Play, Layers, Calendar, Trophy, Settings, HelpCircle, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Play, Layers, Calendar, Trophy, Settings, HelpCircle, CheckCircle2, AlertCircle, FolderCheck } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   const [events, setEvents] = useState<any[]>([]);
@@ -120,19 +120,26 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div className="space-y-3 pt-4 border-t border-slate-100">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Link
                     to={`/admin/slots?eventId=${evt.id}`}
-                    className="btn-secondary text-xs py-2 px-3 justify-center gap-1.5 font-bold"
+                    className="btn-secondary text-xs py-2 px-2 justify-center gap-1 font-bold"
                   >
                     <Play className="w-3.5 h-3.5 text-indigo-600" /> Slots
                   </Link>
 
                   <Link
                     to={`/admin/question-bank?eventId=${evt.id}`}
-                    className="btn-secondary text-xs py-2 px-3 justify-center gap-1.5 font-bold"
+                    className="btn-secondary text-xs py-2 px-2 justify-center gap-1 font-bold"
                   >
                     <HelpCircle className="w-3.5 h-3.5 text-indigo-600" /> Content
+                  </Link>
+
+                  <Link
+                    to={`/admin/problem-allocations?eventId=${evt.id}`}
+                    className="btn-secondary text-xs py-2 px-2 justify-center gap-1 font-bold text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100"
+                  >
+                    <FolderCheck className="w-3.5 h-3.5 text-indigo-600" /> Allocations
                   </Link>
                 </div>
 
