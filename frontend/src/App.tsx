@@ -13,6 +13,7 @@ import { AdminLeaderboard } from './pages/admin/Leaderboard';
 import { AdminSettings } from './pages/admin/Settings';
 import { AdminTeams } from './pages/admin/Teams';
 import { AdminMalpractice } from './pages/admin/Malpractice';
+import { ProblemAllocations } from './pages/admin/ProblemAllocations';
 import { MalpracticeWarningBanner } from './components/MalpracticeWarningBanner';
 
 import { TeamRegister } from './pages/user/Register';
@@ -117,6 +118,14 @@ export const AppRoutes: React.FC = () => {
             element={
               <RequireAuth role="admin">
                 <AdminMalpractice />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/problem-allocations"
+            element={
+              <RequireAuth role="admin">
+                <ProblemAllocations />
               </RequireAuth>
             }
           />
