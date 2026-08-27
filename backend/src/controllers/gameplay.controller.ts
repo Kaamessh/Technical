@@ -40,17 +40,38 @@ export async function getRound1Question(req: AuthenticatedTeamRequest, res: Resp
 
     if (!slotId) return res.status(400).json({ error: 'Team not assigned to a slot' });
 
-    const slotLimits = await getSlotLimits(slotId);
-    const r1Limit = slotLimits.r1_limit || 10;
-    const timerState = await getSlotTimerState(slotId);
+    const [slotLimits, timerState, { data: slot }] = await Promise.all([
+      getSlotLimits(slotId),
+      getSlotTimerState(slotId),
+      supabase.from('slots').select('id, status, current_round').eq('id', slotId).single(),
+    ]);
 
-    const [{ data: progress }, { data: ledgerEntries }, { data: allQuestions }] = await Promise.all([
-      supabase
-        .from('team_round_progress')
-        .select('status')
-        .eq('team_id', teamId)
-        .eq('round_number', 1)
-        .single(),
+    const r1Limit = slotLimits.r1_limit || 10;
+
+    // Check if team has already completed Round 1
+    const { data: progress } = await supabase
+      .from('team_round_progress')
+      .select('status')
+      .eq('team_id', teamId)
+      .eq('round_number', 1)
+      .single();
+
+    if (progress && progress.status === 'completed') {
+      const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
+      return res.json({ completed: true, message: 'Round 1 completed!', decode_hint: decodeHint, timer: timerState });
+    }
+
+    // IF SLOT IS NOT YET IN_PROGRESS (e.g. 'scheduled' or 'open' registration), KEEP TEAMS IN LOBBY
+    if (!slot || slot.status !== 'in_progress') {
+      return res.json({
+        waiting_for_next: true,
+        slot_status: slot?.status || 'open',
+        message: 'You have joined the slot. Waiting for the event organizer to start Round 1...',
+        timer: timerState,
+      });
+    }
+
+    const [{ data: ledgerEntries }, { data: allQuestions }] = await Promise.all([
       supabase
         .from('points_ledger')
         .select('reason')
@@ -61,11 +82,6 @@ export async function getRound1Question(req: AuthenticatedTeamRequest, res: Resp
         .select('id, question_text, options')
         .eq('event_id', eventId),
     ]);
-
-    if (progress && progress.status === 'completed') {
-      const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
-      return res.json({ completed: true, message: 'Round 1 completed!', decode_hint: decodeHint, timer: timerState });
-    }
 
     const validQuestions = (allQuestions || []).filter(
       (q) => q.question_text && !q.question_text.startsWith('__') && Array.isArray(q.options)
@@ -106,6 +122,7 @@ export async function getRound1Question(req: AuthenticatedTeamRequest, res: Resp
       options: nextQuestion.options,
       question_number: completedQuestionIds.length + 1,
       total_questions: targetLimit,
+      live_started_at: timerState.started_at,
       timer: timerState,
     });
   } catch (error: any) {
