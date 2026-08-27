@@ -2,256 +2,256 @@ import { supabase } from '../services/supabaseClient';
 
 export const round4QuestionsData = [
   {
-    question_text: '🏦 Bank Account — Status Mismatch: Find the ONE anomalous row.',
+    question_text: '🏦 Bank Account Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Account ID', 'Customer', 'Account Type', 'Status', 'Opened', 'Closed', 'Last Txn', 'Branch'],
+      headers: ['Row', 'Account ID', 'Customer', 'Type', 'Status', 'Opened', 'Closed', 'Last Transaction', 'Branch'],
       rows: [
-        ['AC101', 'Rahul Kumar', 'Savings', 'Active', '2021', '—', '2026-08-12', 'Chennai'],
-        ['AC102', 'Priya Nair', 'Current', 'Active', '2020', '—', '2026-08-14', 'Mumbai'],
-        ['AC103', 'Arjun Shah', 'Savings', 'Closed', '2019', '2025', '2025-02-10', 'Delhi'],
-        ['AC104', 'Meena Rao', 'Savings', 'Active', '2022', '—', '2026-08-09', 'Pune'],
-        ['AC105', 'Kiran Das', 'Current', 'Active', '2023', '—', '2026-08-16', 'Bengaluru'],
-        ['AC106', 'Divya Menon', 'Savings', 'Closed', '2020', '2024', '2024-11-21', 'Kochi'],
-        ['AC107', 'Sanjay Roy', 'Current', 'Active', '2021', '—', '2026-08-11', 'Hyderabad'],
-        ['AC108', 'Neha Gupta', 'Savings', 'Active', '2024', '—', '2026-08-15', 'Chennai'],
-        ['AC109', 'Ajay Verma', 'Current', 'Closed', '2018', '2023', '2026-08-01', 'Delhi'],
-        ['AC110', 'Kavya Shah', 'Savings', 'Active', '2022', '—', '2026-08-17', 'Mumbai'],
+        ['1', 'SAV-731', 'Ananya Bose', 'Savings', 'Active', '2021', '—', '2026-08-11', 'Kolkata'],
+        ['2', 'CUR-284', 'Vikram Iyer', 'Current', 'Active', '2020', '—', '2026-08-14', 'Chennai'],
+        ['3', 'SAV-916', 'Farah Khan', 'Savings', 'Closed', '2018', '2025', '2024-10-03', 'Mumbai'],
+        ['4', 'CUR-507', 'Manoj Pillai', 'Current', 'Closed', '2019', '2023', '2025-07-18', 'Kochi'],
+        ['5', 'SAV-362', 'Ishita Roy', 'Savings', 'Active', '2024', '—', '2026-08-15', 'Delhi'],
+        ['6', 'CUR-845', 'Ritesh Jain', 'Current', 'Active', '2022', '—', '2026-08-09', 'Jaipur'],
+        ['7', 'SAV-129', 'Sneha Das', 'Savings', 'Closed', '2020', '2024', '2024-02-21', 'Pune'],
+        ['8', 'CUR-673', 'Yusuf Ali', 'Current', 'Active', '2021', '—', '2026-08-16', 'Hyderabad'],
+        ['9', 'SAV-458', 'Lavanya R', 'Savings', 'Active', '2023', '—', '2026-08-12', 'Coimbatore'],
+        ['10', 'CUR-792', 'Nitin Sood', 'Current', 'Closed', '2017', '2022', '2021-12-30', 'Bengaluru'],
       ],
     },
-    correct_index: 8, // Row 9 (Ajay Verma: Closed account with 2026 txn after 2023 closure)
+    correct_index: 3, // Row 4 (Closed 2023 but transaction in 2025)
   },
   {
-    question_text: '📚 Library — Borrow/Return Mismatch: Find the ONE anomalous row.',
+    question_text: '📚 Library Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Borrow ID', 'Student', 'Book', 'Category', 'Issue Date', 'Return Date', 'Days Allowed', 'Status'],
+      headers: ['Row', 'Loan ID', 'Member', 'Book', 'Genre', 'Issued', 'Returned', 'Limit', 'Fine ₹'],
       rows: [
-        ['LB101', 'Rahul', 'Python Basics', 'Programming', '2026-08-01', '2026-08-08', '14', 'Returned'],
-        ['LB102', 'Priya', 'DBMS', 'Programming', '2026-08-02', '2026-08-09', '14', 'Returned'],
-        ['LB103', 'Arjun', 'Operating Systems', 'Programming', '2026-08-03', '2026-08-12', '14', 'Returned'],
-        ['LB104', 'Meena', 'Data Structures', 'Programming', '2026-08-04', '2026-08-15', '14', 'Returned'],
-        ['LB105', 'Kiran', 'Computer Networks', 'Programming', '2026-08-05', '2026-08-14', '14', 'Returned'],
-        ['LB106', 'Divya', 'Artificial Intelligence', 'Programming', '2026-08-06', '2026-08-20', '14', 'Returned'],
-        ['LB107', 'Sanjay', 'Database Systems', 'Programming', '2026-08-07', '2026-08-13', '14', 'Returned'],
-        ['LB108', 'Neha', 'Machine Learning', 'Programming', '2026-08-08', '2026-08-17', '14', 'Returned'],
-        ['LB109', 'Ajay', 'Python Basics', 'Programming', '2026-08-09', '2026-08-18', '14', 'Returned'],
-        ['LB110', 'Kavya', 'Cloud Computing', 'Literature', '2026-08-10', '2026-08-19', '14', 'Returned'],
+        ['1', 'LN-41', 'Aarav Sen', 'Algorithms', 'Computer Science', 'Aug 01', 'Aug 09', '14 days', '0'],
+        ['2', 'LN-52', 'Maya Thomas', 'The Alchemist', 'Fiction', 'Aug 02', 'Aug 12', '14 days', '0'],
+        ['3', 'LN-63', 'Kabir Shah', 'Digital Logic', 'Engineering', 'Aug 03', 'Aug 10', '14 days', '0'],
+        ['4', 'LN-74', 'Nandhini V', 'Pride and Prejudice', 'Fiction', 'Aug 04', 'Aug 16', '14 days', '0'],
+        ['5', 'LN-85', 'Zoya Mirza', 'Cloud Computing', 'Computer Science', 'Aug 05', 'Aug 18', '14 days', '0'],
+        ['6', 'LN-96', 'Harish Babu', 'Thermodynamics', 'Engineering', 'Aug 06', 'Aug 15', '14 days', '0'],
+        ['7', 'LN-107', 'Rehan Joseph', 'Data Mining', 'History', 'Aug 07', 'Aug 17', '14 days', '0'],
+        ['8', 'LN-118', 'Keerthi Raj', 'Wings of Fire', 'Biography', 'Aug 08', 'Aug 19', '14 days', '0'],
+        ['9', 'LN-129', 'Om Prakash', 'Computer Networks', 'Computer Science', 'Aug 09', 'Aug 20', '14 days', '0'],
+        ['10', 'LN-140', 'Tara Singh', 'Organic Chemistry', 'Science', 'Aug 10', 'Aug 22', '14 days', '0'],
       ],
     },
-    correct_index: 9, // Row 10 (Cloud Computing classified under Literature)
+    correct_index: 6, // Row 7 (Data Mining classified under History)
   },
   {
-    question_text: '🚖 Taxi Ride — Distance/Time Mismatch: Find the ONE anomalous row.',
+    question_text: '🚖 Taxi Ride Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Ride ID', 'Driver', 'Pickup', 'Drop', 'Distance km', 'Fare ₹', 'Start', 'End'],
+      headers: ['Row', 'Trip Code', 'Driver', 'Pickup', 'Drop', 'Distance km', 'Traffic', 'Fare ₹', 'Start', 'End'],
       rows: [
-        ['R101', 'Arun', 'Chennai Central', 'T Nagar', '7', '210', '09:00', '09:22'],
-        ['R102', 'Priya', 'Adyar', 'Guindy', '9', '270', '09:30', '10:00'],
-        ['R103', 'Kiran', 'Velachery', 'Tambaram', '18', '520', '10:10', '10:55'],
-        ['R104', 'Meena', 'Anna Nagar', 'Mogappair', '8', '240', '11:00', '11:25'],
-        ['R105', 'Rahul', 'Porur', 'Guindy', '11', '330', '11:30', '12:05'],
-        ['R106', 'Divya', 'Mylapore', 'Adyar', '6', '190', '12:10', '12:30'],
-        ['R107', 'Sanjay', 'T Nagar', 'Guindy', '5', '160', '13:00', '13:18'],
-        ['R108', 'Neha', 'Tambaram', 'Chromepet', '9', '260', '14:00', '14:28'],
-        ['R109', 'Ajay', 'Egmore', 'Nungambakkam', '5', '150', '15:00', '15:17'],
-        ['R110', 'Kavya', 'Porur', 'Guindy', '3', '120', '16:00', '18:30'],
+        ['1', 'TX-801', 'Balaji K', 'Adyar', 'Guindy', '8', 'Medium', '248', '08:15', '08:42'],
+        ['2', 'TX-654', 'Fatima Noor', 'Tambaram', 'Chromepet', '6', 'Low', '190', '09:00', '11:45'],
+        ['3', 'TX-923', 'Gautham R', 'T Nagar', 'Mylapore', '5', 'High', '175', '10:10', '10:35'],
+        ['4', 'TX-477', 'Pooja Menon', 'Velachery', 'Adyar', '7', 'Medium', '220', '11:00', '11:25'],
+        ['5', 'TX-312', 'Danish Khan', 'Anna Nagar', 'Egmore', '9', 'High', '290', '12:20', '12:55'],
+        ['6', 'TX-568', 'Reshma Paul', 'Porur', 'Koyambedu', '10', 'Medium', '310', '13:05', '13:38'],
+        ['7', 'TX-739', 'Suraj Nair', 'Saidapet', 'Guindy', '4', 'Low', '140', '14:10', '14:23'],
+        ['8', 'TX-246', 'Bhavana S', 'Nungambakkam', 'T Nagar', '3', 'Medium', '115', '15:00', '15:14'],
+        ['9', 'TX-895', 'Imran Sheikh', 'Perambur', 'Egmore', '8', 'High', '260', '16:15', '16:48'],
+        ['10', 'TX-381', 'Janani M', 'Mylapore', 'Besant Nagar', '6', 'Medium', '205', '17:30', '17:52'],
       ],
     },
-    correct_index: 9, // Row 10 (3 km ride lasting 2.5 hours)
+    correct_index: 1, // Row 2 (6 km trip taking 2h 45m with Low traffic)
   },
   {
-    question_text: '👨‍🎓 Student Attendance — Logical Mismatch: Find the ONE anomalous row.',
+    question_text: '👨‍🎓 Student Attendance Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Student ID', 'Student', 'Working Days', 'Present', 'Absent', 'Attendance %', 'Semester', 'Section'],
+      headers: ['Row', 'Roll No', 'Student', 'Sem', 'Sec', 'Working', 'Present', 'Absent', 'Attendance'],
       rows: [
-        ['S101', 'Rahul', '100', '92', '8', '92%', '4', 'A'],
-        ['S102', 'Priya', '100', '85', '15', '85%', '3', 'B'],
-        ['S103', 'Arjun', '100', '96', '4', '96%', '4', 'A'],
-        ['S104', 'Meena', '100', '78', '22', '78%', '2', 'C'],
-        ['S105', 'Kiran', '100', '88', '12', '88%', '3', 'A'],
-        ['S106', 'Divya', '100', '91', '9', '91%', '4', 'B'],
-        ['S107', 'Sanjay', '100', '84', '16', '84%', '2', 'A'],
-        ['S108', 'Neha', '100', '95', '5', '95%', '4', 'C'],
-        ['S109', 'Ajay', '100', '89', '11', '89%', '3', 'B'],
-        ['S110', 'Kavya', '100', '94', '6', '84%', '4', 'A'],
+        ['1', 'ADS24101', 'Dev Patel', '4', 'A', '96', '89', '7', '92.7%'],
+        ['2', 'CSE23114', 'Rhea Kapoor', '6', 'B', '96', '82', '14', '85.4%'],
+        ['3', 'IT24207', 'Aman Verma', '4', 'C', '96', '91', '5', '94.8%'],
+        ['4', 'ECE22119', 'Sonal Gupta', '8', 'A', '96', '76', '20', '79.2%'],
+        ['5', 'ADS24122', 'Karthik S', '4', 'B', '96', '88', '8', '91.7%'],
+        ['6', 'CSE23131', 'Nisha Rao', '6', 'A', '96', '90', '6', '93.8%'],
+        ['7', 'IT24215', 'Pranav M', '4', 'C', '96', '84', '12', '87.5%'],
+        ['8', 'ECE22108', 'Ira Nair', '8', 'B', '96', '93', '3', '96.9%'],
+        ['9', 'ADS24135', 'Mohan Raj', '4', 'A', '96', '86', '10', '94.8%'],
+        ['10', 'CSE23142', 'Simran K', '6', 'B', '96', '80', '16', '83.3%'],
       ],
     },
-    correct_index: 9, // Row 10 (Present 94 + Absent 6 = 100, but attendance recorded as 84% instead of 94%)
+    correct_index: 8, // Row 9 (86/96 = 89.6% recorded as 94.8%)
   },
   {
-    question_text: '🍔 Food Delivery — Location/Time Mismatch: Find the ONE anomalous row.',
+    question_text: '🍔 Food Delivery Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Order ID', 'Customer', 'Restaurant', 'Restaurant City', 'Delivery City', 'Order Time', 'Delivery Time', 'Distance km'],
+      headers: ['Row', 'Order No', 'Customer', 'Restaurant', 'City', 'Items', 'Ordered', 'Picked', 'Delivered', 'Rating'],
       rows: [
-        ['FD101', 'Rahul', 'Burger Hub', 'Chennai', 'Chennai', '12:05', '12:35', '6'],
-        ['FD102', 'Priya', 'Pizza Point', 'Mumbai', 'Mumbai', '12:40', '13:15', '8'],
-        ['FD103', 'Arjun', 'Spice House', 'Delhi', 'Delhi', '13:10', '13:45', '9'],
-        ['FD104', 'Meena', 'Cafe 24', 'Pune', 'Pune', '13:30', '14:05', '7'],
-        ['FD105', 'Kiran', 'Biryani Palace', 'Chennai', 'Chennai', '14:00', '14:40', '10'],
-        ['FD106', 'Divya', 'Burger Hub', 'Bengaluru', 'Bengaluru', '14:20', '14:55', '8'],
-        ['FD107', 'Sanjay', 'Pizza Point', 'Hyderabad', 'Hyderabad', '15:00', '15:35', '7'],
-        ['FD108', 'Neha', 'Spice House', 'Mumbai', 'Mumbai', '15:30', '16:05', '6'],
-        ['FD109', 'Ajay', 'Cafe 24', 'Pune', 'Pune', '16:00', '16:30', '5'],
-        ['FD110', 'Kavya', 'Biryani Palace', 'Chennai', 'Chennai', '16:20', '16:00', '7'],
+        ['1', 'FD-2201', 'Rohan Das', 'Urban Tadka', 'Chennai', '2', '12:05', '12:20', '12:42', '4.7'],
+        ['2', 'FD-2202', 'Elina George', 'Pizza Loft', 'Kochi', '1', '12:40', '12:55', '13:28', '4.5'],
+        ['3', 'FD-2203', 'Sahil Arora', 'Bowl Story', 'Delhi', '3', '13:10', '13:24', '13:51', '4.8'],
+        ['4', 'FD-2204', 'Megha Iyer', 'Spice Route', 'Bengaluru', '2', '13:35', '13:50', '14:22', '4.6'],
+        ['5', 'FD-2205', 'Armaan Qureshi', 'Burger Lab', 'Mumbai', '2', '14:00', '14:18', '13:55', '4.4'],
+        ['6', 'FD-2206', 'Lydia Paul', 'Dosa Corner', 'Chennai', '4', '14:25', '14:40', '15:12', '4.9'],
+        ['7', 'FD-2207', 'Tushar Jain', 'Curry House', 'Pune', '1', '15:00', '15:16', '15:41', '4.3'],
+        ['8', 'FD-2208', 'Naveena R', 'Rice Bowl', 'Hyderabad', '2', '15:20', '15:35', '16:05', '4.7'],
+        ['9', 'FD-2209', 'Sameer Ali', 'Grill Station', 'Delhi', '3', '16:10', '16:28', '16:58', '4.5'],
+        ['10', 'FD-2210', 'Isha S', 'Noodle Nest', 'Kolkata', '2', '16:40', '16:55', '17:21', '4.6'],
       ],
     },
-    correct_index: 9, // Row 10 (Delivery time 16:00 earlier than order time 16:20)
+    correct_index: 4, // Row 5 (Delivered 13:55 earlier than Picked 14:18)
   },
   {
-    question_text: '📦 Warehouse — Stock Calculation Mismatch: Find the ONE anomalous row.',
+    question_text: '📦 Warehouse Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Item ID', 'Product', 'Category', 'Warehouse', 'Stock In', 'Stock Out', 'Balance', 'Reorder Level'],
+      headers: ['Row', 'SKU', 'Item', 'Category', 'Zone', 'Opening', 'Received', 'Dispatched', 'Closing'],
       rows: [
-        ['I101', 'Laptop', 'Electronics', 'WH01', '100', '20', '80', '30'],
-        ['I102', 'Keyboard', 'Electronics', 'WH02', '150', '40', '110', '40'],
-        ['I103', 'Monitor', 'Electronics', 'WH01', '80', '25', '55', '20'],
-        ['I104', 'Chair', 'Furniture', 'WH03', '120', '50', '70', '30'],
-        ['I105', 'Mouse', 'Electronics', 'WH02', '200', '75', '125', '50'],
-        ['I106', 'Desk', 'Furniture', 'WH03', '90', '30', '60', '25'],
-        ['I107', 'Printer', 'Electronics', 'WH01', '70', '20', '50', '20'],
-        ['I108', 'Cabinet', 'Furniture', 'WH02', '100', '45', '55', '25'],
-        ['I109', 'Laptop', 'Electronics', 'WH03', '180', '60', '120', '40'],
-        ['I110', 'Keyboard', 'Electronics', 'WH01', '160', '50', '120', '40'],
+        ['1', 'WH-A19', 'USB Hub', 'Electronics', 'A2', '120', '40', '55', '120'],
+        ['2', 'WH-B07', 'Office Chair', 'Furniture', 'B1', '60', '20', '18', '62'],
+        ['3', 'WH-C34', 'LED Monitor', 'Electronics', 'C3', '85', '30', '40', '75'],
+        ['4', 'WH-D12', 'Notebook Pack', 'Stationery', 'D2', '200', '100', '120', '180'],
+        ['5', 'WH-E88', 'Wireless Mouse', 'Electronics', 'A1', '150', '50', '70', '130'],
+        ['6', 'WH-F25', 'Storage Rack', 'Furniture', 'B4', '40', '10', '8', '42'],
+        ['7', 'WH-G61', 'Printer Ink', 'Office', 'D1', '90', '60', '75', '75'],
+        ['8', 'WH-H03', 'Laptop Stand', 'Electronics', 'C2', '110', '25', '45', '90'],
+        ['9', 'WH-J47', 'Desk Lamp', 'Office', 'B3', '70', '30', '35', '65'],
+        ['10', 'WH-K90', 'HDMI Cable', 'Electronics', 'A3', '180', '40', '100', '120'],
       ],
     },
-    correct_index: 9, // Row 10 (160 - 50 = 110, but balance is recorded as 120)
+    correct_index: 0, // Row 1 (120 + 40 - 55 = 105 != 120)
   },
   {
-    question_text: '🎓 Student Academic — Department/Subject Mismatch: Find the ONE anomalous row.',
+    question_text: '🎓 Student Academic Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Student ID', 'Student', 'Department', 'Subject', 'Semester', 'Admission', 'Graduation', 'Credits'],
+      headers: ['Row', 'Student ID', 'Name', 'Department', 'Sem', 'Elective', 'Credits', 'CGPA', 'Admission'],
       rows: [
-        ['ST101', 'Rahul', 'AI&DS', 'Machine Learning', '4', '2024', '2028', '24'],
-        ['ST102', 'Priya', 'CSE', 'Data Structures', '3', '2024', '2028', '22'],
-        ['ST103', 'Arjun', 'ECE', 'Digital Electronics', '5', '2023', '2027', '24'],
-        ['ST104', 'Meena', 'AI&DS', 'Deep Learning', '4', '2024', '2028', '23'],
-        ['ST105', 'Kiran', 'CSE', 'DBMS', '4', '2024', '2028', '24'],
-        ['ST106', 'Divya', 'IT', 'Computer Networks', '3', '2024', '2028', '21'],
-        ['ST107', 'Sanjay', 'ECE', 'Microprocessors', '5', '2023', '2027', '23'],
-        ['ST108', 'Neha', 'AI&DS', 'Python Programming', '2', '2025', '2029', '20'],
-        ['ST109', 'Ajay', 'CSE', 'Operating Systems', '6', '2023', '2027', '24'],
-        ['ST110', 'Kavya', 'AI&DS', 'Mechanical Design', '4', '2024', '2028', '23'],
+        ['1', 'UNI-501', 'Aditya Bose', 'AI & DS', '4', 'Machine Learning', '4', '8.4', '2024'],
+        ['2', 'UNI-502', 'Fathima S', 'CSE', '6', 'Distributed Systems', '3', '8.1', '2023'],
+        ['3', 'UNI-503', 'Joel Mathew', 'ECE', '5', 'Embedded Systems', '4', '7.9', '2024'],
+        ['4', 'UNI-504', 'Prisha Jain', 'IT', '4', 'Cloud Computing', '3', '8.6', '2024'],
+        ['5', 'UNI-505', 'Vishal Rao', 'AI & DS', '4', 'Data Visualization', '3', '8.0', '2024'],
+        ['6', 'UNI-506', 'Anjali P', 'CSE', '6', 'Compiler Design', '4', '8.3', '2023'],
+        ['7', 'UNI-507', 'Naveen Das', 'ECE', '5', 'Signal Processing', '4', '7.8', '2024'],
+        ['8', 'UNI-508', 'Mira Kapoor', 'AI & DS', '4', 'Structural Engineering', '3', '8.5', '2024'],
+        ['9', 'UNI-509', 'Raghav Menon', 'IT', '4', 'Web Technologies', '3', '8.2', '2024'],
+        ['10', 'UNI-510', 'Sana Ali', 'CSE', '6', 'Database Security', '3', '8.7', '2023'],
       ],
     },
-    correct_index: 9, // Row 10 (Mechanical Design does not fit AI&DS department)
+    correct_index: 7, // Row 8 (Structural Engineering for AI & DS department)
   },
   {
-    question_text: '🏨 Hotel Booking — Capacity/Date Mismatch: Find the ONE anomalous row.',
+    question_text: '🏨 Hotel Booking Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Booking ID', 'Guest', 'Room Type', 'Max Guests', 'Booked Guests', 'Check-in', 'Check-out', 'Rate ₹'],
+      headers: ['Row', 'Reservation', 'Guest', 'City', 'Room', 'Capacity', 'Guests', 'Check-in', 'Check-out', 'Nights'],
       rows: [
-        ['BK101', 'Rahul', 'Single', '1', '1', 'Aug 01', 'Aug 03', '2500'],
-        ['BK102', 'Priya', 'Deluxe', '2', '2', 'Aug 02', 'Aug 05', '4200'],
-        ['BK103', 'Arjun', 'Suite', '4', '4', 'Aug 03', 'Aug 06', '7500'],
-        ['BK104', 'Meena', 'Single', '1', '1', 'Aug 04', 'Aug 06', '2600'],
-        ['BK105', 'Kiran', 'Deluxe', '2', '2', 'Aug 05', 'Aug 08', '4300'],
-        ['BK106', 'Divya', 'Suite', '4', '4', 'Aug 06', 'Aug 09', '7600'],
-        ['BK107', 'Sanjay', 'Single', '1', '1', 'Aug 07', 'Aug 10', '2500'],
-        ['BK108', 'Neha', 'Deluxe', '2', '2', 'Aug 08', 'Aug 11', '4100'],
-        ['BK109', 'Ajay', 'Suite', '4', '4', 'Aug 09', 'Aug 12', '7800'],
-        ['BK110', 'Kavya', 'Single', '1', '4', 'Aug 10', 'Aug 12', '2500'],
+        ['1', 'HT-771', 'Yash Gupta', 'Goa', 'Deluxe', '2', '2', 'Aug 02', 'Aug 05', '3'],
+        ['2', 'HT-772', 'Ayesha Khan', 'Chennai', 'Suite', '4', '3', 'Aug 03', 'Aug 06', '3'],
+        ['3', 'HT-773', 'Ravi Shankar', 'Jaipur', 'Single', '1', '3', 'Aug 04', 'Aug 06', '2'],
+        ['4', 'HT-774', 'Leena Roy', 'Kochi', 'Twin', '2', '2', 'Aug 05', 'Aug 08', '3'],
+        ['5', 'HT-775', 'Varun S', 'Mumbai', 'Deluxe', '2', '1', 'Aug 06', 'Aug 09', '3'],
+        ['6', 'HT-776', 'Nikita Paul', 'Pune', 'Suite', '4', '4', 'Aug 07', 'Aug 10', '3'],
+        ['7', 'HT-777', 'Dheeraj K', 'Bengaluru', 'Single', '1', '1', 'Aug 08', 'Aug 11', '3'],
+        ['8', 'HT-778', 'Rina Das', 'Delhi', 'Twin', '2', '2', 'Aug 09', 'Aug 12', '3'],
+        ['9', 'HT-779', 'Faiz Ahmed', 'Goa', 'Deluxe', '2', '2', 'Aug 10', 'Aug 13', '3'],
+        ['10', 'HT-780', 'Pavithra M', 'Chennai', 'Suite', '4', '3', 'Aug 11', 'Aug 14', '3'],
       ],
     },
-    correct_index: 9, // Row 10 (Single room allows max 1 guest but 4 guests booked)
+    correct_index: 2, // Row 3 (Capacity 1 vs 3 guests booked)
   },
   {
-    question_text: '🔧 Vehicle Service — Vehicle/Service Mismatch: Find the ONE anomalous row.',
+    question_text: '🔧 Vehicle Service Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Vehicle ID', 'Owner', 'Vehicle Type', 'Service', 'Odometer km', 'Purchase Year', 'Service Year', 'Cost ₹'],
+      headers: ['Row', 'Service ID', 'Owner', 'Vehicle', 'Fuel', 'Odometer', 'Service Type'],
       rows: [
-        ['VH101', 'Rahul', 'Petrol Bike', 'Oil Change', '24000', '2022', '2025', '1200'],
-        ['VH102', 'Priya', 'Diesel Car', 'Engine Service', '48000', '2021', '2025', '8500'],
-        ['VH103', 'Arjun', 'Electric Scooter', 'Battery Check', '12000', '2023', '2025', '2400'],
-        ['VH104', 'Meena', 'Petrol Car', 'Brake Service', '35000', '2022', '2025', '4200'],
-        ['VH105', 'Kiran', 'Bike', 'Chain Service', '29000', '2021', '2025', '1800'],
-        ['VH106', 'Divya', 'Diesel SUV', 'Oil Change', '52000', '2020', '2025', '3500'],
-        ['VH107', 'Sanjay', 'Electric Car', 'Battery Diagnostic', '41000', '2022', '2025', '3000'],
-        ['VH108', 'Neha', 'Petrol Bike', 'Tyre Change', '18000', '2023', '2025', '2800'],
-        ['VH109', 'Ajay', 'Diesel Car', 'Brake Service', '61000', '2019', '2025', '5000'],
-        ['VH110', 'Kavya', 'Electric Scooter', 'Engine Oil Change', '9000', '2024', '2025', '1200'],
+        ['1', 'VS-101', 'Ashwin Kumar', 'Honda City', 'Petrol', '42500', 'Oil & Filter'],
+        ['2', 'VS-102', 'Saira Ahmed', 'TVS Apache', 'Petrol', '18900', 'Chain Adjustment'],
+        ['3', 'VS-103', 'Kunal Shah', 'Tata Nexon EV', 'Electric', '31200', 'Battery Diagnostic'],
+        ['4', 'VS-104', 'Revathi R', 'Hyundai Creta', 'Diesel', '56700', 'Brake Service'],
+        ['5', 'VS-105', 'Irfan Ali', 'Ather 450X', 'Electric', '14600', 'Software Check'],
+        ['6', 'VS-106', 'Madhav P', 'Ola S1 Pro', 'Electric', '11800', 'Engine Oil Replacement'],
+        ['7', 'VS-107', 'Charu Jain', 'Royal Enfield', 'Petrol', '27400', 'Oil Change'],
+        ['8', 'VS-108', 'Basil George', 'Maruti Baleno', 'Petrol', '39800', 'Tyre Rotation'],
+        ['9', 'VS-109', 'Tanvi S', 'Mahindra XUV', 'Diesel', '63000', 'Engine Service'],
+        ['10', 'VS-110', 'Hari N', 'TVS iQube', 'Electric', '9500', 'Brake Inspection'],
       ],
     },
-    correct_index: 9, // Row 10 (Electric scooter does not have engine oil)
+    correct_index: 5, // Row 6 (Ola S1 Pro Electric vehicle having Engine Oil Replacement)
   },
   {
-    question_text: '🚆 Train Journey — Route/Time Mismatch: Find the ONE anomalous row.',
+    question_text: '🚆 Train Journey Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Ticket ID', 'Passenger', 'Train', 'Route', 'Boarding', 'Destination', 'Departure', 'Arrival'],
+      headers: ['Row', 'PNR', 'Passenger', 'Train', 'Route', 'Departure', 'Arrival'],
       rows: [
-        ['T101', 'Rahul', 'TN01', 'Chennai–Madurai', 'Chennai', 'Madurai', '08:00', '13:00'],
-        ['T102', 'Priya', 'TN02', 'Chennai–Coimbatore', 'Chennai', 'Coimbatore', '09:00', '14:00'],
-        ['T103', 'Arjun', 'KA01', 'Bengaluru–Mysuru', 'Bengaluru', 'Mysuru', '10:00', '12:00'],
-        ['T104', 'Meena', 'TN03', 'Chennai–Trichy', 'Chennai', 'Trichy', '11:00', '16:00'],
-        ['T105', 'Kiran', 'TN01', 'Chennai–Madurai', 'Chennai', 'Madurai', '12:00', '17:00'],
-        ['T106', 'Divya', 'TN04', 'Coimbatore–Chennai', 'Coimbatore', 'Chennai', '13:00', '18:00'],
-        ['T107', 'Sanjay', 'KA01', 'Bengaluru–Mysuru', 'Bengaluru', 'Mysuru', '14:00', '16:00'],
-        ['T108', 'Neha', 'TN05', 'Chennai–Pondicherry', 'Chennai', 'Pondicherry', '15:00', '17:00'],
-        ['T109', 'Ajay', 'TN03', 'Chennai–Trichy', 'Chennai', 'Trichy', '16:00', '21:00'],
-        ['T110', 'Kavya', 'TN01', 'Chennai–Madurai', 'Chennai', 'Madurai', '17:00', '15:00'],
+        ['1', 'PNR501', 'Aditi Rao', '12631', 'Chennai–Madurai', '06:30', '12:15'],
+        ['2', 'PNR502', 'Nikhil Das', '12028', 'Bengaluru–Mysuru', '08:00', '10:10'],
+        ['3', 'PNR503', 'Sanjana K', '12675', 'Chennai–Coimbatore', '09:15', '15:40'],
+        ['4', 'PNR504', 'Imtiaz Ali', '16322', 'Ernakulam–Chennai', '10:00', '19:20'],
+        ['5', 'PNR505', 'Preethi M', '12653', 'Chennai–Trichy', '11:30', '16:10'],
+        ['6', 'PNR506', 'Rohit Jain', '16592', 'Pune–Mumbai', '13:00', '16:20'],
+        ['7', 'PNR507', 'Mitali Sen', '12007', 'Delhi–Chandigarh', '14:15', '17:30'],
+        ['8', 'PNR508', 'Arvind K', '22637', 'Mysuru–Chennai', '15:00', '22:45'],
+        ['9', 'PNR509', 'Shreya Paul', '16128', 'Chennai–Guruvayur', '16:30', '05:15'],
+        ['10', 'PNR510', 'Farhan Noor', '12622', 'Coimbatore–Chennai', '18:00', '16:45'],
       ],
     },
-    correct_index: 9, // Row 10 (Arrival 15:00 earlier than departure 17:00)
+    correct_index: 9, // Row 10 (Departure 18:00 vs Arrival 16:45)
   },
   {
-    question_text: '🏋️‍♂️ Fitness — Measurement Mismatch: Find the ONE anomalous row.',
+    question_text: '🏋️‍♂️ Fitness Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['User ID', 'Age', 'Weight kg', 'Steps', 'Heart Rate', 'Calories', 'Duration min', 'Workout'],
+      headers: ['Row', 'Profile', 'Name', 'Age', 'Workout', 'Duration', 'Steps', 'Avg HR', 'Calories'],
       rows: [
-        ['FIT101', '24', '68', '8500', '78', '320', '65', 'Walking'],
-        ['FIT102', '31', '74', '9200', '82', '360', '70', 'Jogging'],
-        ['FIT103', '27', '62', '10500', '80', '410', '75', 'Running'],
-        ['FIT104', '29', '70', '7800', '76', '300', '60', 'Walking'],
-        ['FIT105', '35', '81', '6500', '85', '340', '55', 'Cycling'],
-        ['FIT106', '42', '79', '6200', '80', '290', '52', 'Walking'],
-        ['FIT107', '26', '65', '11000', '84', '430', '82', 'Running'],
-        ['FIT108', '33', '72', '9000', '88', '390', '70', 'Jogging'],
-        ['FIT109', '30', '67', '8900', '81', '335', '66', 'Walking'],
-        ['FIT110', '40', '77', '200', '82', '700', '60', 'Walking'],
+        ['1', 'FT-31', 'Aravind S', '26', 'Jogging', '50', '7200', '132', '480'],
+        ['2', 'FT-32', 'Hema R', '34', 'Cycling', '45', '5000', '125', '390'],
+        ['3', 'FT-33', 'Zubin Khan', '29', 'Walking', '60', '8100', '118', '410'],
+        ['4', 'FT-34', 'Lakshmi P', '31', 'Walking', '55', '250', '112', '680'],
+        ['5', 'FT-35', 'Chetan Rao', '38', 'Running', '40', '6800', '148', '560'],
+        ['6', 'FT-36', 'Nila Bose', '24', 'Jogging', '35', '5400', '136', '420'],
+        ['7', 'FT-37', 'Bharath K', '42', 'Cycling', '50', '4800', '122', '430'],
+        ['8', 'FT-38', 'Riya Menon', '27', 'Running', '45', '7100', '152', '590'],
+        ['9', 'FT-39', 'Kishore V', '36', 'Walking', '65', '8600', '115', '440'],
+        ['10', 'FT-40', 'Asha Devi', '30', 'Jogging', '42', '6000', '140', '455'],
       ],
     },
-    correct_index: 9, // Row 10 (200 steps with 700 calories is inconsistent outlier)
+    correct_index: 3, // Row 4 (250 steps for 55m with 680 calories)
   },
   {
-    question_text: '📱 Mobile Usage — Timestamp/Frequency Mismatch: Find the ONE anomalous row.',
+    question_text: '📱 Mobile Usage Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['User ID', 'Date', 'Data GB', 'Calls', 'Call Min', 'Login', 'Logout', 'Device'],
+      headers: ['Row', 'User Tag', 'Date', 'Device', 'Screen Hours', 'Data GB', 'Calls', 'Call Minutes'],
       rows: [
-        ['M101', 'Aug 01', '2.5', '12', '45', '09:00', '18:00', 'Android'],
-        ['M102', 'Aug 01', '3.1', '15', '52', '08:30', '17:30', 'iPhone'],
-        ['M103', 'Aug 02', '2.8', '10', '40', '10:00', '19:00', 'Android'],
-        ['M104', 'Aug 02', '3.0', '18', '60', '09:00', '18:00', 'Android'],
-        ['M105', 'Aug 03', '2.9', '14', '48', '08:00', '17:00', 'iPhone'],
-        ['M106', 'Aug 03', '3.2', '16', '55', '09:00', '18:00', 'Android'],
-        ['M107', 'Aug 04', '3.5', '17', '50', '10:00', '19:00', 'iPhone'],
-        ['M108', 'Aug 04', '2.7', '11', '42', '09:30', '18:30', 'Android'],
-        ['M109', 'Aug 05', '3.2', '13', '47', '11:00', '20:00', 'iPhone'],
-        ['M110', 'Aug 05', '35.0', '13', '47', '11:00', '20:00', 'iPhone'],
+        ['1', 'MB-801', 'Aug 12', 'Android', '5.2', '2.8', '14', '46'],
+        ['2', 'MB-802', 'Aug 12', 'iOS', '4.7', '3.1', '11', '38'],
+        ['3', 'MB-803', 'Aug 13', 'Android', '6.0', '3.5', '18', '55'],
+        ['4', 'MB-804', 'Aug 13', 'Android', '4.9', '2.6', '12', '41'],
+        ['5', 'MB-805', 'Aug 14', 'iOS', '5.5', '3.3', '15', '49'],
+        ['6', 'MB-806', 'Aug 14', 'Android', '5.1', '2.9', '13', '44'],
+        ['7', 'MB-807', 'Aug 15', 'iOS', '5.8', '38.7', '16', '51'],
+        ['8', 'MB-808', 'Aug 15', 'Android', '4.6', '2.4', '10', '35'],
+        ['9', 'MB-809', 'Aug 16', 'iOS', '5.3', '3.0', '14', '47'],
+        ['10', 'MB-810', 'Aug 16', 'Android', '6.1', '3.6', '19', '58'],
       ],
     },
-    correct_index: 9, // Row 10 (35 GB extreme data usage outlier)
+    correct_index: 6, // Row 7 (38.7 GB data outlier)
   },
   {
-    question_text: '🛍️ E-commerce — Price/Quantity/Total Mismatch: Find the ONE anomalous row.',
+    question_text: '🛍️ E-commerce Dataset — Spot the Anomalous Row',
     options: {
-      headers: ['Order ID', 'Product', 'Quantity', 'Unit Price ₹', 'Discount ₹', 'Recorded Total ₹', 'Category', 'Payment'],
+      headers: ['Row', 'Order Ref', 'Buyer', 'Product', 'Qty', 'Unit ₹', 'Discount ₹', 'Shipping ₹', 'Paid ₹'],
       rows: [
-        ['ORD101', 'Laptop', '2', '50000', '5000', '95000', 'Electronics', 'Paid'],
-        ['ORD102', 'Mouse', '5', '500', '100', '2400', 'Electronics', 'Paid'],
-        ['ORD103', 'Keyboard', '3', '1200', '200', '3400', 'Electronics', 'Paid'],
-        ['ORD104', 'Monitor', '2', '15000', '1000', '29000', 'Electronics', 'Paid'],
-        ['ORD105', 'Headphones', '4', '2500', '500', '9500', 'Audio', 'Paid'],
-        ['ORD106', 'Webcam', '2', '3000', '200', '5800', 'Electronics', 'Paid'],
-        ['ORD107', 'Tablet', '1', '25000', '2000', '23000', 'Electronics', 'Paid'],
-        ['ORD108', 'Phone', '2', '30000', '3000', '57000', 'Electronics', 'Paid'],
-        ['ORD109', 'Printer', '1', '12000', '1000', '11000', 'Electronics', 'Paid'],
-        ['ORD110', 'Smartwatch', '3', '5000', '500', '14000', 'Wearable', 'Paid'],
+        ['1', 'EC-901', 'Rhea Thomas', 'Wireless Earbuds', '2', '3000', '300', '100', '5800'],
+        ['2', 'EC-902', 'Aakash Nair', 'Smartwatch', '3', '4500', '500', '150', '12800'],
+        ['3', 'EC-903', 'Mansi Kapoor', 'Mechanical Keyboard', '1', '6000', '600', '100', '5500'],
+        ['4', 'EC-904', 'Danish Paul', 'Portable SSD', '2', '5000', '750', '100', '9350'],
+        ['5', 'EC-905', 'Sonia R', 'Gaming Mouse', '4', '1500', '200', '120', '5920'],
+        ['6', 'EC-906', 'Rajat Bose', 'Monitor Arm', '1', '3800', '300', '100', '3600'],
+        ['7', 'EC-907', 'Elena Joseph', 'Tablet', '2', '22000', '2000', '200', '42200'],
+        ['8', 'EC-908', 'Naveed S', 'Bluetooth Speaker', '3', '2200', '300', '100', '6400'],
+        ['9', 'EC-909', 'Tanya Gupta', 'Webcam', '2', '2500', '250', '80', '4830'],
+        ['10', 'EC-910', 'Kiran Mathew', 'Laptop Stand', '5', '1200', '400', '100', '5700'],
       ],
     },
-    correct_index: 9, // Row 10 (3 * 5000 - 500 = 14500, recorded total is 14000)
+    correct_index: 1, // Row 2 (3 * 4500 - 500 + 150 = 13150 != 12800)
   },
 ];
 
 async function seedRound4() {
-  console.log('Inserting 13 Round 4 Data Challenge questions into Supabase...');
+  console.log(`Starting to seed ${round4QuestionsData.length} Round 4 Spot Data Anomaly questions into Supabase...`);
 
   const { data: events, error: eventsErr } = await supabase.from('events').select('id, name');
   if (eventsErr || !events || events.length === 0) {
@@ -260,10 +260,18 @@ async function seedRound4() {
   }
 
   for (const event of events) {
-    console.log(`Processing event: ${event.name} (${event.id})`);
+    console.log(`\nProcessing event: "${event.name}" (${event.id})`);
 
-    // Delete existing placeholder data challenge questions or keep them?
-    // Let's insert all 13 questions
+    // Cleanly delete previous data challenge questions for fresh update
+    const { error: delErr } = await supabase
+      .from('data_challenge_questions')
+      .delete()
+      .eq('event_id', event.id);
+
+    if (delErr) {
+      console.warn(`Warning deleting old questions:`, delErr);
+    }
+
     const inserts = round4QuestionsData.map((q) => ({
       event_id: event.id,
       question_text: q.question_text,
@@ -277,9 +285,9 @@ async function seedRound4() {
       .select('id, question_text, correct_index');
 
     if (insertErr) {
-      console.error(`Error inserting into event ${event.name}:`, insertErr);
+      console.error(`Error inserting into event "${event.name}":`, insertErr);
     } else {
-      console.log(`Successfully inserted ${inserted?.length} questions into event ${event.name}!`);
+      console.log(`✓ Successfully inserted ${inserted?.length} Round 4 questions into event "${event.name}"!`);
     }
   }
 }
