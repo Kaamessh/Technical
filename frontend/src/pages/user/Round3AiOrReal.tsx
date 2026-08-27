@@ -105,7 +105,7 @@ export const Round3AiOrReal: React.FC = () => {
         });
       }
 
-      // 1.2-second clear feedback delay so team can see their result
+      // Snappy 0.8s clear feedback delay
       setTimeout(() => {
         if (res.data.decode_hint) {
           setDecodePair(res.data.decode_hint);
@@ -115,7 +115,7 @@ export const Round3AiOrReal: React.FC = () => {
         } else {
           fetchChallenge();
         }
-      }, 1200);
+      }, 800);
     } catch (err: any) {
       console.error(err);
       fetchChallenge();

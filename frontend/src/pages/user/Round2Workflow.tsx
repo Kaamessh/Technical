@@ -196,7 +196,7 @@ export const Round2Workflow: React.FC = () => {
           setDecodePair(res.data.decode_hint);
           setShowDecode(true);
         } else {
-          setTimeout(() => navigate('/team/round-3'), 1200);
+          setTimeout(() => navigate('/team/round-3'), 800);
         }
       } else {
         setFeedback({
