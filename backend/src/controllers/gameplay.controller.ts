@@ -105,16 +105,22 @@ export async function getRound1Question(req: AuthenticatedTeamRequest, res: Resp
       return res.json({ completed: true, message: 'Round 1 completed!', decode_hint: decodeHint, timer: timerState });
     }
 
-    const unattempted = validQuestions.filter((q) => !completedQuestionIds.includes(q.id));
+    // Deterministic shuffle for this team using teamId seed
+    // Guarantees the team always sees the EXACT same question until answered, while different teams see different orders!
+    const sortedQuestions = [...validQuestions].sort((a, b) => {
+      const hashA = (teamId + a.id).split('').reduce((acc: number, char: string) => (acc * 31 + char.charCodeAt(0)) % 1000003, 0);
+      const hashB = (teamId + b.id).split('').reduce((acc: number, char: string) => (acc * 31 + char.charCodeAt(0)) % 1000003, 0);
+      return hashA - hashB;
+    });
+
+    const unattempted = sortedQuestions.filter((q) => !completedQuestionIds.includes(q.id));
 
     if (unattempted.length === 0) {
       const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
       return res.json({ completed: true, message: 'Round 1 completed!', decode_hint: decodeHint, timer: timerState });
     }
 
-    // Shuffled uniquely for this team
-    const shuffledUnattempted = [...unattempted].sort(() => 0.5 - Math.random());
-    const nextQuestion = shuffledUnattempted[0];
+    const nextQuestion = unattempted[0];
 
     return res.json({
       id: nextQuestion.id,

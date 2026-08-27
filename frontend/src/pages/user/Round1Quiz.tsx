@@ -114,13 +114,13 @@ export const Round1Quiz: React.FC = () => {
     return () => clearInterval(ticker);
   }, [liveStartedAt]);
 
-  // Stable Auto-Sync Polling Loop (400ms when in lobby, 2000ms in active game)
+  // Auto-Sync Polling Loop: Only poll while waiting in lobby
   useEffect(() => {
-    if (showDecode) return;
+    if (showDecode || question) return;
     fetchQuestion();
-    const interval = setInterval(fetchQuestion, waitingForNext || !question ? 400 : 2000);
+    const interval = setInterval(fetchQuestion, 400);
     return () => clearInterval(interval);
-  }, [fetchQuestion, showDecode, waitingForNext, !question]);
+  }, [fetchQuestion, showDecode, question]);
 
   // Supabase Realtime Broadcast Listener
   useEffect(() => {
