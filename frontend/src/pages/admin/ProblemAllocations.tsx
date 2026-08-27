@@ -352,8 +352,22 @@ export const ProblemAllocations: React.FC = () => {
                           </h3>
 
                           {prob.description ? (
-                            <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200 font-sans">
-                              {prob.description}
+                            <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200 font-sans whitespace-pre-line">
+                              {prob.description.split(/(https?:\/\/[^\s]+)/g).map((part: string, idx: number) =>
+                                /(https?:\/\/[^\s]+)/.test(part) ? (
+                                  <a
+                                    key={idx}
+                                    href={part}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-indigo-600 hover:text-indigo-800 underline font-mono font-bold inline-flex items-center gap-0.5 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200"
+                                  >
+                                    <span>{part}</span> ↗
+                                  </a>
+                                ) : (
+                                  part
+                                )
+                              )}
                             </p>
                           ) : (
                             <p className="text-xs text-slate-400 italic">No description provided.</p>

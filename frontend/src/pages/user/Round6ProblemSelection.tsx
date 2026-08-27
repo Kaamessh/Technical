@@ -232,7 +232,21 @@ export const Round6ProblemSelection: React.FC = () => {
               Problem Description & Requirements:
             </h4>
             <p className="text-slate-200 text-sm sm:text-base leading-relaxed whitespace-pre-line font-sans">
-              {myProblem.description}
+              {myProblem.description.split(/(https?:\/\/[^\s]+)/g).map((part: string, idx: number) =>
+                /(https?:\/\/[^\s]+)/.test(part) ? (
+                  <a
+                    key={idx}
+                    href={part}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-400 hover:text-amber-300 underline font-mono font-bold inline-flex items-center gap-1 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30"
+                  >
+                    <span>{part}</span> ↗
+                  </a>
+                ) : (
+                  part
+                )
+              )}
             </p>
           </div>
 

@@ -283,8 +283,22 @@ export const SlotManager: React.FC = () => {
                     </div>
 
                     {claim.description && (
-                      <p className="text-xs text-slate-600 leading-relaxed bg-white p-2.5 rounded-xl border border-indigo-100">
-                        {claim.description}
+                      <p className="text-xs text-slate-600 leading-relaxed bg-white p-2.5 rounded-xl border border-indigo-100 whitespace-pre-line">
+                        {claim.description.split(/(https?:\/\/[^\s]+)/g).map((part: string, pIdx: number) =>
+                          /(https?:\/\/[^\s]+)/.test(part) ? (
+                            <a
+                              key={pIdx}
+                              href={part}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-800 underline font-mono font-bold inline-flex items-center gap-0.5 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200"
+                            >
+                              <span>{part}</span> ↗
+                            </a>
+                          ) : (
+                            part
+                          )
+                        )}
                       </p>
                     )}
 
@@ -782,8 +796,22 @@ export const SlotManager: React.FC = () => {
                                 )}
 
                                 {c.description && (
-                                  <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-2 rounded-lg border border-slate-200">
-                                    {c.description}
+                                  <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-2 rounded-lg border border-slate-200 whitespace-pre-line">
+                                    {c.description.split(/(https?:\/\/[^\s]+)/g).map((part: string, pIdx: number) =>
+                                      /(https?:\/\/[^\s]+)/.test(part) ? (
+                                        <a
+                                          key={pIdx}
+                                          href={part}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-indigo-600 hover:text-indigo-800 underline font-mono font-bold inline-flex items-center gap-0.5 bg-indigo-50 px-1 py-0.5 rounded border border-indigo-200"
+                                        >
+                                          <span>{part}</span> ↗
+                                        </a>
+                                      ) : (
+                                        part
+                                      )
+                                    )}
                                   </p>
                                 )}
                               </div>
