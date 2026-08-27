@@ -31,158 +31,81 @@ async function getTeamDecodeHintPair(teamId: string, roundNumber: number): Promi
   }
 }
 
-// ROUND 1: Current question fetch
-// ROUND 1: Current question fetch
-export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, res: Response) {
+// ROUND 1: Individual MCQ question fetch (Shuffled uniquely for each team)
+export async function getRound1Question(req: AuthenticatedTeamRequest, res: Response) {
   try {
-    const slotId = req.team?.slot_id;
+    const eventId = req.team?.event_id;
     const teamId = req.team?.id;
+    const slotId = req.team?.slot_id;
 
     if (!slotId) return res.status(400).json({ error: 'Team not assigned to a slot' });
 
-    // Check if team has already completed Round 1
-    const { data: progress } = await supabase
-      .from('team_round_progress')
-      .select('status')
-      .eq('team_id', teamId)
-      .eq('round_number', 1)
-      .single();
+    const slotLimits = await getSlotLimits(slotId);
+    const r1Limit = slotLimits.r1_limit || 10;
+    const timerState = await getSlotTimerState(slotId);
+
+    const [{ data: progress }, { data: ledgerEntries }, { data: allQuestions }] = await Promise.all([
+      supabase
+        .from('team_round_progress')
+        .select('status')
+        .eq('team_id', teamId)
+        .eq('round_number', 1)
+        .single(),
+      supabase
+        .from('points_ledger')
+        .select('reason')
+        .eq('team_id', teamId)
+        .eq('round_number', 1),
+      supabase
+        .from('quiz_questions')
+        .select('id, question_text, options')
+        .eq('event_id', eventId),
+    ]);
 
     if (progress && progress.status === 'completed') {
       const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
-      return res.json({ completed: true, message: 'Round 1 completed', decode_hint: decodeHint });
+      return res.json({ completed: true, message: 'Round 1 completed!', decode_hint: decodeHint, timer: timerState });
     }
 
-    const timerState = await getSlotTimerState(slotId);
+    const validQuestions = (allQuestions || []).filter(
+      (q) => q.question_text && !q.question_text.startsWith('__') && Array.isArray(q.options)
+    );
 
-    // Parallel DB fetches for max speed
-    const [{ data: liveItem }, { data: pendingItem }, { data: totalQueue }] = await Promise.all([
-      supabase
-        .from('slot_question_queue')
-        .select('*, quiz_questions(*)')
-        .eq('slot_id', slotId)
-        .eq('status', 'live')
-        .order('sequence_order', { ascending: true })
-        .limit(1)
-        .single(),
-      supabase
-        .from('slot_question_queue')
-        .select('id, sequence_order, quiz_questions(*)')
-        .eq('slot_id', slotId)
-        .eq('status', 'pending')
-        .order('sequence_order', { ascending: true })
-        .limit(1)
-        .single(),
-      supabase
-        .from('slot_question_queue')
-        .select('id')
-        .eq('slot_id', slotId)
-        .limit(1),
-    ]);
-
-    if (!totalQueue || totalQueue.length === 0) {
-      return res.json({
-        waiting_for_next: true,
-        message: 'Waiting for event organizer to start Round 1 live quiz...',
-        timer: timerState,
-      });
+    if (validQuestions.length === 0) {
+      return res.status(404).json({ error: 'No quiz questions configured for this event.' });
     }
 
-    if (liveItem && liveItem.quiz_questions) {
-      const { data: attempt } = await supabase
-        .from('points_ledger')
-        .select('id')
-        .eq('team_id', teamId)
-        .eq('round_number', 1)
-        .eq('reason', `incorrect attempt: ${liveItem.id}`)
-        .single();
+    const completedQuestionIds = ledgerEntries
+      ? ledgerEntries
+          .filter((l) => l.reason && l.reason.startsWith('round1_attempt:'))
+          .map((l) => l.reason.replace('round1_attempt:', '').trim())
+          .filter(Boolean)
+      : [];
 
-      if (attempt) {
-        // Team already attempted current live question
-        if (pendingItem && pendingItem.quiz_questions) {
-          // Promote pending to live so game moves forward
-          await supabase
-            .from('slot_question_queue')
-            .update({ status: 'live', live_started_at: new Date().toISOString() })
-            .eq('id', pendingItem.id);
+    const targetLimit = Math.min(r1Limit, validQuestions.length);
 
-          await broadcastToSlot(slotId, 'question:live', {
-            slot_id: slotId,
-            queue_id: pendingItem.id,
-            sequence_order: pendingItem.sequence_order,
-          });
-
-          return res.json({
-            queue_id: pendingItem.id,
-            sequence_order: pendingItem.sequence_order,
-            live_started_at: new Date().toISOString(),
-            timer: timerState,
-            question: {
-              id: (pendingItem.quiz_questions as any).id,
-              question_text: (pendingItem.quiz_questions as any).question_text,
-              options: (pendingItem.quiz_questions as any).options,
-            },
-          });
-        }
-
-        // No more pending questions -> Complete Round 1 for team
-        await completeTeamRound(teamId!, slotId, 1, 60, 0, 'completed round 1');
-        const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
-        return res.json({
-          completed: true,
-          message: 'Round 1 completed',
-          decode_hint: decodeHint,
-          timer: timerState,
-        });
-      }
-
-      return res.json({
-        queue_id: liveItem.id,
-        sequence_order: liveItem.sequence_order,
-        live_started_at: liveItem.live_started_at,
-        timer: timerState,
-        question: {
-          id: liveItem.quiz_questions.id,
-          question_text: liveItem.quiz_questions.question_text,
-          options: liveItem.quiz_questions.options,
-        },
-      });
+    if (completedQuestionIds.length >= targetLimit) {
+      const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
+      return res.json({ completed: true, message: 'Round 1 completed!', decode_hint: decodeHint, timer: timerState });
     }
 
-    // No live item, but pending item exists -> Promote it
-    if (pendingItem && pendingItem.quiz_questions) {
-      await supabase
-        .from('slot_question_queue')
-        .update({ status: 'live', live_started_at: new Date().toISOString() })
-        .eq('id', pendingItem.id);
+    const unattempted = validQuestions.filter((q) => !completedQuestionIds.includes(q.id));
 
-      await broadcastToSlot(slotId, 'question:live', {
-        slot_id: slotId,
-        queue_id: pendingItem.id,
-        sequence_order: pendingItem.sequence_order,
-      });
-
-      return res.json({
-        queue_id: pendingItem.id,
-        sequence_order: pendingItem.sequence_order,
-        live_started_at: new Date().toISOString(),
-        timer: timerState,
-        question: {
-          id: (pendingItem.quiz_questions as any).id,
-          question_text: (pendingItem.quiz_questions as any).question_text,
-          options: (pendingItem.quiz_questions as any).options,
-        },
-      });
+    if (unattempted.length === 0) {
+      const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
+      return res.json({ completed: true, message: 'Round 1 completed!', decode_hint: decodeHint, timer: timerState });
     }
 
-    // Queue exhausted -> Complete Round 1
-    await completeTeamRound(teamId!, slotId, 1, 60, 0, 'completed round 1');
-    const decodeHint = await getTeamDecodeHintPair(teamId!, 1);
+    // Shuffled uniquely for this team
+    const shuffledUnattempted = [...unattempted].sort(() => 0.5 - Math.random());
+    const nextQuestion = shuffledUnattempted[0];
 
     return res.json({
-      completed: true,
-      message: 'Round 1 finished',
-      decode_hint: decodeHint,
+      id: nextQuestion.id,
+      question_text: nextQuestion.question_text,
+      options: nextQuestion.options,
+      question_number: completedQuestionIds.length + 1,
+      total_questions: targetLimit,
       timer: timerState,
     });
   } catch (error: any) {
@@ -190,136 +113,72 @@ export async function getRound1CurrentQuestion(req: AuthenticatedTeamRequest, re
   }
 }
 
-export const getRound1Current = getRound1CurrentQuestion;
+export const getRound1CurrentQuestion = getRound1Question;
+export const getRound1Current = getRound1Question;
 
-// ROUND 1: Answer submission (FAST, SYNCHRONOUS & RELIABLE)
+// ROUND 1: Submit individual MCQ choice (FAST & SYNCHRONOUS)
 export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Response) {
   try {
     const teamId = req.team?.id;
     const slotId = req.team?.slot_id;
-    const { queue_id, selected_index, time_taken } = req.body;
+    const eventId = req.team?.event_id;
+    const { question_id, selected_index, time_taken } = req.body;
 
-    if (!queue_id || selected_index === undefined) {
-      return res.status(400).json({ error: 'queue_id and selected_index required' });
+    if (!question_id || selected_index === undefined) {
+      return res.status(400).json({ error: 'question_id and selected_index required' });
     }
 
-    const { data: queueItem } = await supabase
-      .from('slot_question_queue')
-      .select('*, quiz_questions(*)')
-      .eq('id', queue_id)
-      .single();
+    const [{ data: question }, slotLimits, { data: ledgerEntries }, { data: allQuestions }] = await Promise.all([
+      supabase.from('quiz_questions').select('correct_index').eq('id', question_id).single(),
+      slotId ? getSlotLimits(slotId) : Promise.resolve({ r1_limit: 10, r3_limit: 1, r4_limit: 1, r6_limit: 6, started_at: null, duration_seconds: 1200 }),
+      supabase.from('points_ledger').select('reason').eq('team_id', teamId).eq('round_number', 1),
+      supabase.from('quiz_questions').select('id, question_text, options').eq('event_id', eventId),
+    ]);
 
-    if (!queueItem) {
-      return res.status(400).json({ error: 'Question not found' });
-    }
+    if (!question) return res.status(404).json({ error: 'Question not found' });
 
-    const question = queueItem.quiz_questions;
     const isCorrect = question.correct_index === selected_index;
-    const timeTakenSec = time_taken || (queueItem.live_started_at ? (Date.now() - new Date(queueItem.live_started_at).getTime()) / 1000 : 10);
+    const validQuestions = (allQuestions || []).filter(
+      (q) => q.question_text && !q.question_text.startsWith('__') && Array.isArray(q.options)
+    );
 
-    const lockKey = `${slotId}:${queue_id}`;
-    const isFirstClaim = isCorrect && !wonQuestionLocks.has(lockKey);
-    if (isFirstClaim) {
-      wonQuestionLocks.add(lockKey);
-    }
+    const r1Limit = slotLimits.r1_limit || 10;
+    const targetLimit = Math.min(r1Limit, validQuestions.length);
 
-    // Parallel fetch next pending question
-    const { data: nextPending } = await supabase
-      .from('slot_question_queue')
-      .select('id')
-      .eq('slot_id', slotId)
-      .eq('status', 'pending')
-      .order('sequence_order', { ascending: true })
-      .limit(1)
-      .single();
-
-    let decodeHint: any = null;
-
-    if (isCorrect && isFirstClaim) {
-      await supabase
-        .from('slot_question_queue')
-        .update({
-          status: 'won',
-          won_by_team_id: teamId,
-          won_at: new Date().toISOString(),
-        })
-        .eq('id', queue_id);
-
-      await completeTeamRound(teamId!, slotId!, 1, timeTakenSec, 100);
-      decodeHint = await getTeamDecodeHintPair(teamId!, 1);
-
-      await broadcastToSlot(slotId!, 'question:won', {
-        queue_id,
-        won_by_team_id: teamId,
-        team_name: req.team?.team_name,
-      });
-
-      if (nextPending) {
-        await supabase
-          .from('slot_question_queue')
-          .update({ status: 'live', live_started_at: new Date().toISOString() })
-          .eq('id', nextPending.id);
-
-        await broadcastToSlot(slotId!, 'question:live', {
-          slot_id: slotId,
-          queue_id: nextPending.id,
-        });
-      }
-
-      return res.json({
-        correct: true,
-        correct_option_index: question.correct_index,
-        points: 100,
-        completed: true,
-        decode_hint: decodeHint,
-        message: '🎉 CONGRATULATIONS! YOU WERE THE FIRST TO ANSWER CORRECTLY!',
-      });
-    }
-
-    // Incorrect or lost to another team
+    // Save points ledger entry for this question attempt
     await supabase.from('points_ledger').insert({
       team_id: teamId,
       round_number: 1,
-      points: 0,
-      reason: `incorrect attempt: ${queue_id}`,
+      points: isCorrect ? 10 : 0,
+      reason: `round1_attempt: ${question_id}`,
     });
 
-    if (nextPending) {
-      await supabase
-        .from('slot_question_queue')
-        .update({ status: 'live', live_started_at: new Date().toISOString() })
-        .eq('id', nextPending.id);
+    const completedAttempts = ledgerEntries
+      ? ledgerEntries.filter((l) => l.reason && l.reason.startsWith('round1_attempt:'))
+      : [];
 
-      await broadcastToSlot(slotId!, 'question:live', {
-        slot_id: slotId,
-        queue_id: nextPending.id,
-      });
+    const newCompletedCount = completedAttempts.length + 1;
+    const isRoundCompleted = newCompletedCount >= targetLimit;
 
-      return res.json({
-        correct: false,
-        won_by_other: isCorrect && !isFirstClaim,
-        correct_option_index: question.correct_index,
-        points: 0,
-        completed: false,
-        has_next_question: true,
-        message: isCorrect && !isFirstClaim
-          ? '⚠️ Question won by another team! Transitioning to next question...'
-          : '❌ Wrong Answer! The correct answer is highlighted in green.',
-      });
+    let decodeHint: any = null;
+    let finalPoints = isCorrect ? 10 : 0;
+
+    if (isRoundCompleted) {
+      const compResult = await completeTeamRound(teamId!, slotId!, 1, time_taken || 15);
+      finalPoints = compResult.points;
+      decodeHint = await getTeamDecodeHintPair(teamId!, 1);
     }
 
-    // No more questions in queue -> Complete Round 1 for team
-    await completeTeamRound(teamId!, slotId!, 1, timeTakenSec, 0);
-    decodeHint = await getTeamDecodeHintPair(teamId!, 1);
-
     return res.json({
-      correct: false,
-      won_by_other: isCorrect && !isFirstClaim,
+      correct: isCorrect,
       correct_option_index: question.correct_index,
-      points: 0,
-      completed: true,
+      points: finalPoints,
+      completed: isRoundCompleted,
+      has_next_question: !isRoundCompleted,
       decode_hint: decodeHint,
-      message: '❌ Question concluded. Advancing to Round 2...',
+      message: isCorrect
+        ? `🎉 CORRECT! +10 PTS!`
+        : `❌ WRONG CHOICE! THE CORRECT ANSWER IS HIGHLIGHTED IN GREEN.`,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

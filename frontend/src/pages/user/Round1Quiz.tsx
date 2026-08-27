@@ -1,23 +1,19 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { apiClient } from '../../lib/apiClient';
-import { supabaseRealtime } from '../../lib/supabaseRealtime';
 import { Timer } from '../../components/Timer';
 import { DecodePopup } from '../../components/DecodePopup';
 import { ConfettiEffect } from '../../components/ConfettiEffect';
-import { Radio, CheckCircle2, AlertCircle, Lock, XCircle, Sparkles, Zap } from 'lucide-react';
+import { CheckCircle2, AlertCircle, XCircle, Sparkles, HelpCircle } from 'lucide-react';
 import { useSlotTimer } from '../../context/SlotTimerContext';
 
 export const Round1Quiz: React.FC = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const { syncTimer } = useSlotTimer();
 
   const [question, setQuestion] = useState<any>(null);
-  const [queueId, setQueueId] = useState<string | null>(null);
-  const [sequenceOrder, setSequenceOrder] = useState<number>(1);
-  const [liveStartedAt, setLiveStartedAt] = useState<string | null>(null);
+  const [questionNumber, setQuestionNumber] = useState<number>(1);
+  const [totalQuestions, setTotalQuestions] = useState<number>(1);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
@@ -32,18 +28,14 @@ export const Round1Quiz: React.FC = () => {
   const [decodePair, setDecodePair] = useState<number[] | null>(null);
   const [triggerConfetti, setTriggerConfetti] = useState(false);
 
-  // Synchronized 3-2-1 Server Countdown State
-  const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null);
-  const [waitingForNext, setWaitingForNext] = useState(false);
-
-  const isFetchingRef = useRef(false);
-
-  const fetchCurrentQuestion = useCallback(async () => {
-    if (isFetchingRef.current || showDecode) return;
-    isFetchingRef.current = true;
-
+  const fetchQuestion = useCallback(async () => {
+    if (showDecode) return;
     try {
       const res = await apiClient.get('/gameplay/round1/current');
+
+      if (res.data.timer?.started_at) {
+        syncTimer(res.data.timer.started_at, res.data.timer.duration_seconds);
+      }
 
       if (res.data.completed) {
         if (res.data.decode_hint) {
@@ -55,119 +47,29 @@ export const Round1Quiz: React.FC = () => {
         return;
       }
 
-      if (res.data.timer?.started_at) {
-        syncTimer(res.data.timer.started_at, res.data.timer.duration_seconds);
-      }
-
-      if (res.data.waiting_for_next) {
-        setWaitingForNext(true);
-        setQuestion(null);
-        setCountdownRemaining(null);
-      } else if (res.data.question) {
-        setWaitingForNext(false);
-        setQueueId(res.data.queue_id);
-        setSequenceOrder(res.data.sequence_order);
-        setLiveStartedAt(res.data.live_started_at || null);
-        setQuestion(res.data.question);
-
-        // Check if countdown is currently running
-        if (res.data.live_started_at) {
-          const targetMs = new Date(res.data.live_started_at).getTime();
-          const diffSec = Math.ceil((targetMs - Date.now()) / 1000);
-          if (diffSec > 0) {
-            setCountdownRemaining(diffSec);
-          } else {
-            setCountdownRemaining(null);
-          }
-        } else {
-          setCountdownRemaining(null);
-        }
+      if (res.data.id) {
+        setQuestion(res.data);
+        setQuestionNumber(res.data.question_number || 1);
+        setTotalQuestions(res.data.total_questions || 1);
+        setSelectedIndex(null);
+        setCorrectIndex(null);
+        setIsAnswered(false);
+        setIsCorrect(null);
+        setFeedback(null);
       }
     } catch (err: any) {
-      // If error or unassigned, show waiting lobby gracefully
-      setWaitingForNext(true);
-      setQuestion(null);
+      console.error('Error fetching round 1 question:', err);
     } finally {
       setLoading(false);
-      isFetchingRef.current = false;
     }
   }, [navigate, syncTimer, showDecode]);
 
-  // Synchronized 3-2-1 Countdown Ticker
   useEffect(() => {
-    if (!liveStartedAt) return;
-
-    const tickCountdown = () => {
-      const targetMs = new Date(liveStartedAt).getTime();
-      const diffMs = targetMs - Date.now();
-      const secondsLeft = Math.ceil(diffMs / 1000);
-
-      if (secondsLeft > 0) {
-        setCountdownRemaining(secondsLeft);
-      } else if (secondsLeft === 0) {
-        setCountdownRemaining(0);
-        setTimeout(() => {
-          setCountdownRemaining(null);
-        }, 500);
-      } else {
-        setCountdownRemaining(null);
-      }
-    };
-
-    tickCountdown();
-    const ticker = setInterval(tickCountdown, 250);
-    return () => clearInterval(ticker);
-  }, [liveStartedAt]);
-
-  // Stable 500ms Auto-Sync Polling Loop
-  useEffect(() => {
-    if (showDecode) return;
-    fetchCurrentQuestion();
-    const interval = setInterval(fetchCurrentQuestion, 500);
-    return () => clearInterval(interval);
-  }, [fetchCurrentQuestion, showDecode]);
-
-  // Supabase Realtime Broadcast Listener
-  useEffect(() => {
-    if (!user?.slot_id) return;
-
-    const channelName = `slot:${user.slot_id}`;
-    const channel = supabaseRealtime
-      .channel(channelName)
-      .on('broadcast', { event: 'round:start_countdown' }, (payload) => {
-        const startTime = payload.payload?.start_time;
-        if (startTime) {
-          setLiveStartedAt(startTime);
-          syncTimer(startTime, payload.payload?.duration_seconds || 1200);
-        }
-        fetchCurrentQuestion();
-      })
-      .on('broadcast', { event: 'question:live' }, (payload) => {
-        if (payload.payload?.start_time) {
-          setLiveStartedAt(payload.payload.start_time);
-          syncTimer(payload.payload.start_time, payload.payload?.duration_seconds || 1200);
-        }
-        fetchCurrentQuestion();
-      })
-      .on('broadcast', { event: 'question:won' }, (payload) => {
-        if (payload.payload?.won_by_team_id !== user.id) {
-          setFeedback({
-            message: `⚠️ Question won by ${payload.payload?.team_name || 'another team'}! Transitioning...`,
-            type: 'error',
-          });
-        }
-        fetchCurrentQuestion();
-      })
-      .subscribe();
-
-    return () => {
-      supabaseRealtime.removeChannel(channel);
-    };
-  }, [user?.slot_id, fetchCurrentQuestion, syncTimer]);
+    fetchQuestion();
+  }, [fetchQuestion]);
 
   const handleSubmit = async (index: number) => {
-    // Prevent answering while countdown is still active
-    if (!queueId || submitting || isAnswered || countdownRemaining !== null) return;
+    if (!question || submitting || isAnswered) return;
 
     setSelectedIndex(index);
     setSubmitting(true);
@@ -175,7 +77,7 @@ export const Round1Quiz: React.FC = () => {
 
     try {
       const res = await apiClient.post('/gameplay/round1/answer', {
-        queue_id: queueId,
+        question_id: question.id,
         selected_index: index,
       });
 
@@ -192,59 +94,31 @@ export const Round1Quiz: React.FC = () => {
         setIsCorrect(true);
         setTriggerConfetti(true);
         setFeedback({
-          message: `🎉 CONGRATULATIONS! YOU WERE THE FIRST TO ANSWER CORRECTLY! +100 PTS!`,
+          message: `🎉 SPOT ON! CORRECT ANSWER! +10 PTS!`,
           type: 'success',
         });
-
-        setTimeout(() => {
-          if (res.data.decode_hint) {
-            setDecodePair(res.data.decode_hint);
-            setShowDecode(true);
-          } else if (res.data.completed) {
-            navigate('/team/round-2');
-          } else {
-            fetchCurrentQuestion();
-          }
-        }, 1000);
-      } else if (res.data.won_by_other) {
-        setIsCorrect(false);
-        setFeedback({
-          message: `⚠️ QUESTION WON BY ANOTHER TEAM! TRANSITIONING TO NEXT QUESTION...`,
-          type: 'error',
-        });
-
-        setTimeout(() => {
-          if (res.data.decode_hint) {
-            setDecodePair(res.data.decode_hint);
-            setShowDecode(true);
-          } else if (res.data.completed) {
-            navigate('/team/round-2');
-          } else {
-            fetchCurrentQuestion();
-          }
-        }, 800);
       } else {
-        // INCORRECT SELECTION
         setIsCorrect(false);
         setFeedback({
-          message: `❌ WRONG ANSWER! YOUR SELECTION WAS INCORRECT. THE RIGHT ANSWER IS HIGHLIGHTED IN GREEN BELOW.`,
+          message: `❌ WRONG CHOICE! THE CORRECT ANSWER IS HIGHLIGHTED IN GREEN BELOW.`,
           type: 'error',
         });
-
-        setTimeout(() => {
-          if (res.data.decode_hint) {
-            setDecodePair(res.data.decode_hint);
-            setShowDecode(true);
-          } else if (res.data.completed) {
-            navigate('/team/round-2');
-          } else {
-            fetchCurrentQuestion();
-          }
-        }, 1000);
       }
+
+      // Snappy 0.8s transition delay so team can see the verified answer
+      setTimeout(() => {
+        if (res.data.decode_hint) {
+          setDecodePair(res.data.decode_hint);
+          setShowDecode(true);
+        } else if (res.data.completed) {
+          navigate('/team/round-2');
+        } else {
+          fetchQuestion();
+        }
+      }, 800);
     } catch (err: any) {
       console.error(err);
-      fetchCurrentQuestion();
+      fetchQuestion();
     } finally {
       setSubmitting(false);
     }
@@ -255,8 +129,6 @@ export const Round1Quiz: React.FC = () => {
     navigate('/team/round-2');
   };
 
-  const isCountdownActive = countdownRemaining !== null && countdownRemaining >= 0;
-
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 relative">
       {triggerConfetti && <ConfettiEffect />}
@@ -264,34 +136,14 @@ export const Round1Quiz: React.FC = () => {
         <DecodePopup roundNumber={1} pairNumbers={decodePair} onDismiss={handleDismissDecode} />
       )}
 
-      {/* SYNCHRONIZED 3-2-1 START COUNTDOWN OVERLAY */}
-      {isCountdownActive && (
-        <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center text-white animate-fade-in p-6">
-          <div className="max-w-md w-full text-center space-y-6 bg-slate-900/90 p-8 rounded-3xl border-2 border-indigo-500/40 shadow-2xl animate-in zoom-in-95 duration-200">
-            <span className="text-xs font-mono font-extrabold uppercase tracking-widest text-indigo-400 bg-indigo-950/80 px-4 py-1.5 rounded-full border border-indigo-800/80 inline-flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" /> SYNCHRONIZING ARENA START
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-100 uppercase">
-              GET READY!
-            </h2>
-            <div className="text-8xl sm:text-9xl font-black font-mono text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-indigo-400 to-emerald-400 animate-bounce py-2">
-              {countdownRemaining === 0 ? 'START!' : countdownRemaining}
-            </div>
-            <p className="text-xs text-slate-400 font-bold tracking-wide">
-              First team to answer correctly claims the points!
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex items-center justify-between gap-4 mb-6">
         <div>
           <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-            ROUND 1 OF 5 — LIVE QUIZ
+            ROUND 1 OF 5 — MCQ KNOWLEDGE QUIZ
           </span>
           <h1 className="text-2xl font-extrabold text-slate-900 mt-2 flex items-center gap-2">
-            <Radio className="w-6 h-6 text-emerald-500 animate-pulse" /> Speed Answer Arena
+            <HelpCircle className="w-6 h-6 text-indigo-600" /> AI Knowledge Arena
           </h1>
         </div>
 
@@ -320,31 +172,27 @@ export const Round1Quiz: React.FC = () => {
       )}
 
       {loading ? (
-        <div className="card text-center py-12 text-slate-400 font-bold">Synchronizing live question...</div>
+        <div className="card text-center py-12 text-slate-400 font-bold">Loading question...</div>
       ) : !question ? (
         <div className="card text-center py-16 px-6 border-indigo-100 shadow-lg">
           <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4 border border-indigo-100 shadow-inner">
-            <Lock className="w-8 h-8 animate-pulse" />
+            <Sparkles className="w-8 h-8 animate-spin" />
           </div>
           <h3 className="text-xl font-extrabold text-slate-900">
-            SLOT WAITING LOBBY
+            PREPARING ROUND 1 QUESTIONS
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto mt-2 font-medium">
-            {waitingForNext
-              ? 'Your response was recorded. Waiting for the event organizer to broadcast the next live question...'
-              : 'You have joined the slot. Waiting for the event organizer to start Round 1 live quiz...'}
+            Waiting for slot questions to load...
           </p>
-          <div className="mt-6 inline-flex items-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 px-4 py-2 rounded-full border border-indigo-200 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            <span>Auto-Sync Active (Live updates on admin start — No refresh needed)</span>
-          </div>
         </div>
       ) : (
         <div className="card p-8 border-indigo-100 shadow-lg">
           <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-4">
-            <span>QUESTION {sequenceOrder}</span>
-            <span className="text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100 font-mono text-[10px] uppercase tracking-wider">
-              ⚡ FIRST CORRECT ANSWER WINS
+            <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-200 uppercase font-mono tracking-wider">
+              QUESTION {questionNumber} OF {totalQuestions}
+            </span>
+            <span className="text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100 font-mono text-[10px] uppercase tracking-wider">
+              ⚡ 10 PTS PER CORRECT ANSWER
             </span>
           </div>
 
@@ -359,19 +207,16 @@ export const Round1Quiz: React.FC = () => {
               let IconComponent = null;
 
               if (isAnswered) {
-                if (idx === correctIndex && isCorrect) {
-                  // FIRST CORRECT CLAIMER -> HIGHLIGHTED IN GREEN
+                if (idx === correctIndex) {
+                  // CORRECT ANSWER -> GREEN
                   buttonStyle = 'border-emerald-600 bg-emerald-600 text-white font-extrabold shadow-lg shadow-emerald-200 scale-[1.02]';
                   badgeStyle = 'bg-emerald-800 text-white font-black';
                   IconComponent = <CheckCircle2 className="w-6 h-6 text-white shrink-0" />;
                 } else if (idx === selectedIndex && !isCorrect) {
-                  // WRONG SELECTED ANSWER -> HIGHLIGHTED IN RED
+                  // WRONG SELECTED ANSWER -> RED
                   buttonStyle = 'border-rose-600 bg-rose-600 text-white font-extrabold shadow-lg shadow-rose-200 scale-[1.02]';
                   badgeStyle = 'bg-rose-800 text-white font-black';
                   IconComponent = <XCircle className="w-6 h-6 text-white shrink-0" />;
-                } else if (idx === correctIndex && !isCorrect) {
-                  buttonStyle = 'border-emerald-500 bg-emerald-50 text-emerald-900 font-bold';
-                  badgeStyle = 'bg-emerald-600 text-white';
                 } else {
                   buttonStyle = 'border-slate-200 bg-slate-50 text-slate-400 opacity-60';
                   badgeStyle = 'bg-slate-200 text-slate-400';
@@ -380,7 +225,7 @@ export const Round1Quiz: React.FC = () => {
                 buttonStyle = 'border-indigo-600 bg-indigo-50 text-indigo-900';
               }
 
-              const isDisabled = submitting || isAnswered || isCountdownActive;
+              const isDisabled = submitting || isAnswered;
 
               return (
                 <button
@@ -388,7 +233,7 @@ export const Round1Quiz: React.FC = () => {
                   onClick={() => handleSubmit(idx)}
                   disabled={isDisabled}
                   className={`p-5 rounded-2xl border-2 text-left transition-all duration-200 flex items-center justify-between group relative overflow-hidden ${buttonStyle} ${
-                    isDisabled ? 'cursor-not-allowed opacity-90' : 'cursor-pointer active:scale-[0.98]'
+                    isDisabled ? 'cursor-not-allowed' : 'cursor-pointer active:scale-[0.98]'
                   }`}
                 >
                   <div className="flex items-center gap-4">
@@ -405,11 +250,8 @@ export const Round1Quiz: React.FC = () => {
           </div>
 
           <div className="mt-8 flex items-center justify-between pt-6 border-t border-slate-100 text-xs font-bold text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-amber-500" />
-              <span>Speed is factor: Click fastest to claim +100 PTS</span>
-            </span>
-            <span>Single attempt allowed per question</span>
+            <span>Solo MCQ: Each member answers questions independently</span>
+            <span>Progress: {questionNumber}/{totalQuestions}</span>
           </div>
         </div>
       )}

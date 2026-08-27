@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient';
 
 export interface SlotQuestionLimit {
   slot_id: string;
+  r1_limit?: number;
   r3_limit: number;
   r4_limit: number;
   r6_limit?: number;
@@ -10,6 +11,7 @@ export interface SlotQuestionLimit {
 }
 
 export async function getSlotLimits(slotId: string): Promise<{
+  r1_limit: number;
   r3_limit: number;
   r4_limit: number;
   r6_limit: number;
@@ -28,6 +30,7 @@ export async function getSlotLimits(slotId: string): Promise<{
       const match = (row.options as SlotQuestionLimit[]).find((o) => o.slot_id === slotId);
       if (match) {
         return {
+          r1_limit: Math.max(1, Number(match.r1_limit) || 10),
           r3_limit: Math.max(1, Number(match.r3_limit) || 1),
           r4_limit: Math.max(1, Number(match.r4_limit) || 1),
           r6_limit: Math.max(1, Number(match.r6_limit) || 6),
@@ -38,11 +41,11 @@ export async function getSlotLimits(slotId: string): Promise<{
     }
   } catch (err) {}
 
-  return { r3_limit: 1, r4_limit: 1, r6_limit: 6, started_at: null, duration_seconds: 1200 };
+  return { r1_limit: 10, r3_limit: 1, r4_limit: 1, r6_limit: 6, started_at: null, duration_seconds: 1200 };
 }
 
 export async function getAllSlotLimits(): Promise<
-  Record<string, { r3_limit: number; r4_limit: number; r6_limit: number; started_at: string | null; duration_seconds: number }>
+  Record<string, { r1_limit: number; r3_limit: number; r4_limit: number; r6_limit: number; started_at: string | null; duration_seconds: number }>
 > {
   try {
     const { data: row } = await supabase
@@ -55,11 +58,12 @@ export async function getAllSlotLimits(): Promise<
     if (row && Array.isArray(row.options)) {
       const result: Record<
         string,
-        { r3_limit: number; r4_limit: number; r6_limit: number; started_at: string | null; duration_seconds: number }
+        { r1_limit: number; r3_limit: number; r4_limit: number; r6_limit: number; started_at: string | null; duration_seconds: number }
       > = {};
       (row.options as SlotQuestionLimit[]).forEach((o) => {
         if (o.slot_id) {
           result[o.slot_id] = {
+            r1_limit: Math.max(1, Number(o.r1_limit) || 10),
             r3_limit: Math.max(1, Number(o.r3_limit) || 1),
             r4_limit: Math.max(1, Number(o.r4_limit) || 1),
             r6_limit: Math.max(1, Number(o.r6_limit) || 6),
@@ -81,7 +85,8 @@ export async function setSlotLimits(
   eventId: string,
   r6Limit?: number,
   startedAt?: string,
-  durationSeconds?: number
+  durationSeconds?: number,
+  r1Limit?: number
 ): Promise<void> {
   try {
     const { data: existing } = await supabase
@@ -98,12 +103,14 @@ export async function setSlotLimits(
 
     const index = options.findIndex((o) => o.slot_id === slotId);
     const existingLimit = index !== -1 ? options[index] : null;
+    const finalR1 = r1Limit !== undefined ? Math.max(1, r1Limit) : existingLimit?.r1_limit || 10;
     const finalR6 = r6Limit !== undefined ? Math.max(1, r6Limit) : existingLimit?.r6_limit || 6;
     const finalStartedAt = startedAt !== undefined ? startedAt : existingLimit?.started_at;
     const finalDuration = durationSeconds !== undefined ? durationSeconds : existingLimit?.duration_seconds || 1200;
 
     const newEntry: SlotQuestionLimit = {
       slot_id: slotId,
+      r1_limit: finalR1,
       r3_limit: Math.max(1, r3Limit),
       r4_limit: Math.max(1, r4Limit),
       r6_limit: finalR6,
@@ -139,13 +146,14 @@ export async function setSlotStartTime(slotId: string, startedAtIso: string, dur
       slotId,
       currentLimits.r3_limit,
       currentLimits.r4_limit,
-      eventId || '',
+      eventId || 'default_event',
       currentLimits.r6_limit,
       startedAtIso,
-      durationSeconds
+      durationSeconds,
+      currentLimits.r1_limit
     );
   } catch (err) {
-    console.error('Error recording slot start time:', err);
+    console.error('Error setting slot start time:', err);
   }
 }
 
@@ -184,4 +192,3 @@ export async function getSlotTimerState(slotId: string): Promise<{
     is_expired: isStarted && remaining <= 0,
   };
 }
-

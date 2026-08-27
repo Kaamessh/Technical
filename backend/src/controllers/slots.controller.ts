@@ -196,7 +196,7 @@ export async function joinSlot(req: AuthenticatedTeamRequest, res: Response) {
 export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Response) {
   try {
     const { id } = req.params;
-    const { status, current_round, r3_question_limit, r4_question_limit, r6_question_limit } = req.body;
+    const { status, current_round, r1_question_limit, r3_question_limit, r4_question_limit, r6_question_limit } = req.body;
 
     const { data: slot, error } = await supabase
       .from('slots')
@@ -207,18 +207,19 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
     if (error || !slot) return res.status(404).json({ error: 'Slot not found' });
 
     // Restrict editing question limits to BEFORE event starts (scheduled or open status)
-    if (r3_question_limit !== undefined || r4_question_limit !== undefined || r6_question_limit !== undefined) {
+    if (r1_question_limit !== undefined || r3_question_limit !== undefined || r4_question_limit !== undefined || r6_question_limit !== undefined) {
       if (slot.status === 'in_progress' || slot.status === 'completed') {
         return res.status(400).json({ error: 'Question limits cannot be edited once the event has started.' });
       }
       const currentLimits = await getSlotLimits(id);
+      const newR1 = r1_question_limit !== undefined ? Number(r1_question_limit) : currentLimits.r1_limit;
       const newR3 = r3_question_limit !== undefined ? Number(r3_question_limit) : currentLimits.r3_limit;
       const newR4 = r4_question_limit !== undefined ? Number(r4_question_limit) : currentLimits.r4_limit;
       const newR6 = r6_question_limit !== undefined ? Number(r6_question_limit) : currentLimits.r6_limit;
-      await setSlotLimits(id, newR3, newR4, slot.event_id, newR6);
+      await setSlotLimits(id, newR3, newR4, slot.event_id, newR6, undefined, undefined, newR1);
     }
 
-    // If starting Round 1 (transitioning to in_progress or starting queue), populate queue
+    // If starting Round 1 (transitioning to in_progress), set start time and broadcast start
     if (status === 'in_progress' && (slot.status === 'scheduled' || slot.status === 'open')) {
       const countdownSec = 3;
       const gameStartTimestamp = Date.now() + countdownSec * 1000;
@@ -226,58 +227,12 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
       const durationSeconds = 1200; // 20 minutes for the event
       await setSlotStartTime(id, startTimeIso, durationSeconds, slot.event_id);
 
-      const { data: teams } = await supabase.from('teams').select('id').eq('slot_id', id);
-      const teamCount = teams ? teams.length : 1;
-      const queueLength = Math.max(1, teamCount - 1);
-
-      const { data: questions } = await supabase
-        .from('quiz_questions')
-        .select('id, question_text, options')
-        .eq('event_id', slot.event_id);
-
-      const validQuizQuestions = (questions || []).filter(
-        (q) => q.question_text && !q.question_text.startsWith('__') && Array.isArray(q.options)
-      );
-
-      if (!validQuizQuestions || validQuizQuestions.length === 0) {
-        throw new Error('Cannot start Round 1: No quiz questions found for this event.');
-      }
-
-      if (validQuizQuestions && validQuizQuestions.length > 0) {
-        const shuffled = [...validQuizQuestions].sort(() => 0.5 - Math.random());
-        const selected = shuffled.slice(0, queueLength);
-
-        await supabase.from('slot_question_queue').delete().eq('slot_id', id);
-
-        const queuePayload = selected.map((q, idx) => ({
-          slot_id: id,
-          question_id: q.id,
-          sequence_order: idx + 1,
-          status: idx === 0 ? 'live' : 'pending',
-          live_started_at: idx === 0 ? startTimeIso : null,
-        }));
-
-        const { error: insertErr } = await supabase.from('slot_question_queue').insert(queuePayload);
-        if (insertErr) {
-          throw new Error('Queue insert error: ' + insertErr.message);
-        }
-
-        if (queuePayload.length > 0) {
-          await broadcastToSlot(id, 'round:start_countdown', {
-            slot_id: id,
-            countdown_seconds: 3,
-            start_time: startTimeIso,
-            duration_seconds: durationSeconds,
-          });
-
-          await broadcastToSlot(id, 'question:live', {
-            slot_id: id,
-            sequence_order: 1,
-            start_time: startTimeIso,
-            duration_seconds: durationSeconds,
-          });
-        }
-      }
+      await broadcastToSlot(id, 'round:start_countdown', {
+        slot_id: id,
+        countdown_seconds: 3,
+        start_time: startTimeIso,
+        duration_seconds: durationSeconds,
+      });
     }
 
     let updatedSlot = slot;
