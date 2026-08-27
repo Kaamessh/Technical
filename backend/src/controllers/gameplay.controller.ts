@@ -118,12 +118,19 @@ export async function getRound1Question(req: AuthenticatedTeamRequest, res: Resp
 
     return res.json({
       id: nextQuestion.id,
+      question_id: nextQuestion.id,
       question_text: nextQuestion.question_text,
       options: nextQuestion.options,
       question_number: completedQuestionIds.length + 1,
       total_questions: targetLimit,
       live_started_at: timerState.started_at,
       timer: timerState,
+      // Universal compatibility with any cached browser tabs
+      question: {
+        id: nextQuestion.id,
+        question_text: nextQuestion.question_text,
+        options: nextQuestion.options,
+      },
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
@@ -139,14 +146,16 @@ export async function submitRound1Answer(req: AuthenticatedTeamRequest, res: Res
     const teamId = req.team?.id;
     const slotId = req.team?.slot_id;
     const eventId = req.team?.event_id;
-    const { question_id, selected_index, time_taken } = req.body;
+    const { question_id, queue_id, selected_index, time_taken } = req.body;
 
-    if (!question_id || selected_index === undefined) {
+    const targetQId = question_id || queue_id;
+
+    if (!targetQId || selected_index === undefined) {
       return res.status(400).json({ error: 'question_id and selected_index required' });
     }
 
     const [{ data: question }, slotLimits, { data: ledgerEntries }, { data: allQuestions }] = await Promise.all([
-      supabase.from('quiz_questions').select('correct_index').eq('id', question_id).single(),
+      supabase.from('quiz_questions').select('correct_index').eq('id', targetQId).single(),
       slotId ? getSlotLimits(slotId) : Promise.resolve({ r1_limit: 10, r3_limit: 1, r4_limit: 1, r6_limit: 6, started_at: null, duration_seconds: 1200 }),
       supabase.from('points_ledger').select('reason').eq('team_id', teamId).eq('round_number', 1),
       supabase.from('quiz_questions').select('id, question_text, options').eq('event_id', eventId),

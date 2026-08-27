@@ -59,9 +59,10 @@ export const Round1Quiz: React.FC = () => {
         setWaitingForNext(true);
         setQuestion(null);
         setCountdownRemaining(null);
-      } else if (res.data.id) {
+      } else if (res.data.id || res.data.question) {
+        const qData = res.data.question || res.data;
         setWaitingForNext(false);
-        setQuestion(res.data);
+        setQuestion(qData);
         setQuestionNumber(res.data.question_number || 1);
         setTotalQuestions(res.data.total_questions || 1);
         setLiveStartedAt(res.data.live_started_at || null);
