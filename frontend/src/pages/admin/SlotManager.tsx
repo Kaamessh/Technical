@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../../lib/apiClient';
-import { Plus, Play, Copy, Trash2, Save, Settings, Lock } from 'lucide-react';
+import { Plus, Play, Copy, Trash2, Save, Settings, Lock, FileText, CheckCircle2, X } from 'lucide-react';
 
 export const SlotManager: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -37,6 +37,7 @@ export const SlotManager: React.FC = () => {
 
   // Slot Claims tracking
   const [slotClaimsMap, setSlotClaimsMap] = useState<Record<string, any[]>>({});
+  const [claimsModalSlot, setClaimsModalSlot] = useState<any | null>(null);
 
   useEffect(() => {
     apiClient.get('/events').then((res) => {
@@ -89,7 +90,7 @@ export const SlotManager: React.FC = () => {
       setSlots(slotList);
       setSlotNumber(slotList.length + 1);
 
-      // Fetch problem statement claims for all slots
+      // Fetch problem statement claims for all slots with full metadata
       const claimsObj: Record<string, any[]> = {};
       await Promise.all(
         slotList.map(async (s: any) => {
@@ -112,6 +113,29 @@ export const SlotManager: React.FC = () => {
   useEffect(() => {
     fetchSlots();
     fetchAvailableQuestionCounts();
+
+    // Auto-refresh problem claims every 4 seconds for live monitoring
+    const timer = setInterval(() => {
+      if (selectedEventId) {
+        apiClient.get(`/slots/event/${selectedEventId}`).then(async (res) => {
+          const slotList = res.data || [];
+          const claimsObj: Record<string, any[]> = {};
+          await Promise.all(
+            slotList.map(async (s: any) => {
+              try {
+                const claimsRes = await apiClient.get(`/problem-statements/slot/${s.id}/claims`);
+                claimsObj[s.id] = claimsRes.data || [];
+              } catch (e) {
+                claimsObj[s.id] = [];
+              }
+            })
+          );
+          setSlotClaimsMap(claimsObj);
+        }).catch(() => {});
+      }
+    }, 4000);
+
+    return () => clearInterval(timer);
   }, [selectedEventId]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -205,10 +229,92 @@ export const SlotManager: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Detailed Problem Statement Claims Modal */}
+      {claimsModalSlot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 space-y-6 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+                  #{claimsModalSlot.slot_number}
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-900">
+                    Slot #{claimsModalSlot.slot_number} Problem Statement Allocations
+                  </h3>
+                  <p className="text-xs text-slate-500 font-mono">
+                    Join Code: <strong>{claimsModalSlot.slot_code}</strong> • Real-time Team Selections
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setClaimsModalSlot(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {(slotClaimsMap[claimsModalSlot.id] || []).length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-sm font-medium">
+                  No teams in this slot have chosen a problem statement yet.
+                </div>
+              ) : (
+                (slotClaimsMap[claimsModalSlot.id] || []).map((claim: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-2xl border-2 border-indigo-100 bg-indigo-50/30 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span className="text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-md font-mono text-xs">
+                          {claim.team_name}
+                        </span>
+                      </span>
+                      <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                        Card #{claim.card_number || (claim.card_index + 1)}
+                      </span>
+                    </div>
+
+                    <div className="text-sm font-bold text-slate-800">
+                      {claim.problem_title}
+                    </div>
+
+                    {claim.description && (
+                      <p className="text-xs text-slate-600 leading-relaxed bg-white p-2.5 rounded-xl border border-indigo-100">
+                        {claim.description}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono pt-1">
+                      <span>Category: <strong className="text-slate-600">{claim.category || 'General'}</strong></span>
+                      {claim.claimed_at && (
+                        <span>Claimed: {new Date(claim.claimed_at).toLocaleTimeString()}</span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setClaimsModalSlot(null)}
+                className="btn-secondary text-xs px-4 py-2"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Slot Control Center</h1>
-          <p className="text-sm text-slate-500 mt-1">Configure slot question limits (Round 1, 3, 4) and launch competitive gameplay.</p>
+          <p className="text-sm text-slate-500 mt-1">Configure slot question limits, launch competitive gameplay, and monitor live problem statement choices.</p>
         </div>
 
         {events.length > 0 && (
@@ -400,7 +506,7 @@ export const SlotManager: React.FC = () => {
               Active Slots ({slots.length})
             </h3>
             <span className="text-xs font-bold text-slate-400">
-              Status auto-updates in real-time
+              Status & problem claims auto-update in real-time
             </span>
           </div>
 
@@ -628,22 +734,50 @@ export const SlotManager: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Claimed Problem Statements Box */}
-                      {claims.length > 0 && (
-                        <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 mb-4 space-y-1.5">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">
-                            🎯 R6 Problem Claims ({claims.length}):
+                      {/* Selected Problem Statements Display Section */}
+                      <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 mb-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                            <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Problem Statements Chosen ({claims.length})</span>
                           </span>
-                          <div className="space-y-1 max-h-24 overflow-y-auto">
+                          {claims.length > 0 && (
+                            <button
+                              onClick={() => setClaimsModalSlot(slot)}
+                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline"
+                            >
+                              View Details
+                            </button>
+                          )}
+                        </div>
+
+                        {claims.length === 0 ? (
+                          <div className="text-[11px] text-slate-400 font-medium italic bg-white p-2 rounded-lg border border-emerald-100 text-center">
+                            No team has chosen a problem statement yet.
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 max-h-36 overflow-y-auto">
                             {claims.map((c: any, idx: number) => (
-                              <div key={idx} className="text-[11px] text-slate-700 flex items-center justify-between bg-white px-2 py-1 rounded border border-emerald-100 font-mono">
-                                <span><strong>{c.team_name}</strong></span>
-                                <span className="text-emerald-700 font-bold">Card #{c.card_index !== undefined ? c.card_index + 1 : idx + 1}</span>
+                              <div
+                                key={idx}
+                                className="text-xs bg-white p-2.5 rounded-xl border border-emerald-100 shadow-2xs space-y-1"
+                              >
+                                <div className="flex items-center justify-between font-mono">
+                                  <span className="font-extrabold text-slate-900 text-[11px] bg-slate-100 px-2 py-0.5 rounded">
+                                    👤 {c.team_name}
+                                  </span>
+                                  <span className="text-emerald-700 font-black text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    Card #{c.card_number || (c.card_index + 1)}
+                                  </span>
+                                </div>
+                                <div className="font-bold text-slate-800 text-[11px] line-clamp-1">
+                                  {c.problem_title}
+                                </div>
                               </div>
                             ))}
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
 
                     {/* Actions */}

@@ -137,23 +137,66 @@ export async function deleteProblemStatement(req: AuthenticatedAdminRequest, res
   }
 }
 
-// Get claims for a slot
+// Get claims for a slot with enriched problem statement & team information
 export async function getSlotClaims(req: any, res: Response) {
   try {
     const { slotId } = req.params;
-    const { data: row } = await supabase
-      .from('quiz_questions')
-      .select('options')
-      .eq('question_text', '__SLOT_PROBLEM_CLAIMS__')
-      .limit(1)
+
+    // Fetch slot to get event_id
+    const { data: slot } = await supabase
+      .from('slots')
+      .select('id, event_id, slot_number, slot_code')
+      .eq('id', slotId)
       .single();
 
-    if (row && Array.isArray(row.options)) {
-      const claims = row.options.filter((c: any) => c.slot_id === slotId);
-      return res.json(claims);
-    }
+    const [
+      { data: claimsRow },
+      { data: psRow },
+    ] = await Promise.all([
+      supabase
+        .from('quiz_questions')
+        .select('options')
+        .eq('question_text', '__SLOT_PROBLEM_CLAIMS__')
+        .limit(1)
+        .single(),
+      slot?.event_id
+        ? supabase
+            .from('quiz_questions')
+            .select('options')
+            .eq('event_id', slot.event_id)
+            .eq('question_text', '__PROBLEM_STATEMENTS__')
+            .single()
+        : Promise.resolve({ data: null }),
+    ]);
 
-    return res.json([]);
+    const allStatements: ProblemStatement[] =
+      psRow && Array.isArray(psRow.options) ? (psRow.options as ProblemStatement[]) : [];
+
+    const rawClaims: any[] =
+      claimsRow && Array.isArray(claimsRow.options)
+        ? claimsRow.options.filter((c: any) => c.slot_id === slotId)
+        : [];
+
+    // Map each claim with full problem statement metadata
+    const enrichedClaims = rawClaims.map((c: any) => {
+      const problem =
+        allStatements.find((p) => p.id === c.problem_id) ||
+        allStatements[c.card_index];
+      return {
+        slot_id: c.slot_id,
+        team_id: c.team_id,
+        team_name: c.team_name,
+        card_index: c.card_index,
+        card_number: (c.card_index !== undefined ? c.card_index : 0) + 1,
+        problem_id: c.problem_id || problem?.id,
+        problem_title: problem?.title || c.problem_title || 'Assigned Problem Statement',
+        category: problem?.category || c.category || 'General',
+        description: problem?.description || c.description || '',
+        claimed_at: c.claimed_at,
+      };
+    });
+
+    return res.json(enrichedClaims);
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
