@@ -220,7 +220,9 @@ export async function updateSlotStatus(req: AuthenticatedAdminRequest, res: Resp
 
     // If starting Round 1 (transitioning to in_progress or starting queue), populate queue
     if (status === 'in_progress' && (slot.status === 'scheduled' || slot.status === 'open')) {
-      const startTimeIso = new Date().toISOString();
+      const countdownSec = 3;
+      const gameStartTimestamp = Date.now() + countdownSec * 1000;
+      const startTimeIso = new Date(gameStartTimestamp).toISOString();
       const durationSeconds = 1200; // 20 minutes for the event
       await setSlotStartTime(id, startTimeIso, durationSeconds, slot.event_id);
 

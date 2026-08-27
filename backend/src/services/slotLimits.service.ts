@@ -150,44 +150,38 @@ export async function setSlotStartTime(slotId: string, startedAtIso: string, dur
 }
 
 export async function getSlotTimerState(slotId: string): Promise<{
-  started_at: string;
+  started_at: string | null;
   duration_seconds: number;
   remaining_seconds: number;
+  is_started: boolean;
   is_expired: boolean;
 }> {
   const limits = await getSlotLimits(slotId);
   const duration = limits.duration_seconds || 1200;
-  let startedAt = limits.started_at;
+  const startedAt = limits.started_at;
 
-  if (!startedAt && slotId) {
-    try {
-      const { data: slot } = await supabase
-        .from('slots')
-        .select('status, created_at, event_id')
-        .eq('id', slotId)
-        .single();
-
-      if (slot) {
-        startedAt = slot.created_at || new Date().toISOString();
-        // Asynchronously backfill so subsequent queries are instant
-        const finalStart = startedAt || new Date().toISOString();
-        setSlotStartTime(slotId, finalStart, duration, slot.event_id).catch(() => {});
-      }
-    } catch (e) {
-      startedAt = new Date().toISOString();
-    }
+  if (!startedAt) {
+    return {
+      started_at: null,
+      duration_seconds: duration,
+      remaining_seconds: duration,
+      is_started: false,
+      is_expired: false,
+    };
   }
 
-  const effectiveStart = startedAt || new Date().toISOString();
-  const startMs = new Date(effectiveStart).getTime();
-  const elapsedSec = Math.floor((Date.now() - startMs) / 1000);
+  const startMs = new Date(startedAt).getTime();
+  const nowMs = Date.now();
+  const isStarted = nowMs >= startMs;
+  const elapsedSec = isStarted ? Math.floor((nowMs - startMs) / 1000) : 0;
   const remaining = Math.max(0, duration - elapsedSec);
 
   return {
-    started_at: effectiveStart,
+    started_at: startedAt,
     duration_seconds: duration,
     remaining_seconds: remaining,
-    is_expired: remaining <= 0,
+    is_started: isStarted,
+    is_expired: isStarted && remaining <= 0,
   };
 }
 
