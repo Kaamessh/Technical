@@ -38,6 +38,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   });
 
+  // Auto-sync latest slot_id from team-status
+  useEffect(() => {
+    if (token && user?.role === 'team') {
+      apiClient
+        .get('/gameplay/team-status')
+        .then((res) => {
+          if (res.data?.slot_id && res.data.slot_id !== user.slot_id) {
+            const updated: UserProfile = { ...user, slot_id: res.data.slot_id };
+            setUser(updated);
+            localStorage.setItem('auth_user', JSON.stringify(updated));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [token, user?.role, user?.slot_id]);
+
   const loginAdmin = (newToken: string, admin: any) => {
     const profile: UserProfile = {
       id: admin.id,
@@ -98,7 +114,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

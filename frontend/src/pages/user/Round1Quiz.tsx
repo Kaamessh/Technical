@@ -70,7 +70,7 @@ export const Round1Quiz: React.FC = () => {
         setLiveStartedAt(res.data.live_started_at || null);
         setQuestion(res.data.question);
 
-        // Calculate synchronized countdown against server start timestamp
+        // Check if countdown is currently running
         if (res.data.live_started_at) {
           const targetMs = new Date(res.data.live_started_at).getTime();
           const diffSec = Math.ceil((targetMs - Date.now()) / 1000);
@@ -84,7 +84,9 @@ export const Round1Quiz: React.FC = () => {
         }
       }
     } catch (err: any) {
-      console.error('Error fetching current round 1 question:', err);
+      // If error or unassigned, show waiting lobby gracefully
+      setWaitingForNext(true);
+      setQuestion(null);
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
@@ -106,24 +108,28 @@ export const Round1Quiz: React.FC = () => {
         setCountdownRemaining(0);
         setTimeout(() => {
           setCountdownRemaining(null);
-        }, 600);
+        }, 500);
       } else {
         setCountdownRemaining(null);
       }
     };
 
     tickCountdown();
-    const timer = setInterval(tickCountdown, 250);
-    return () => clearInterval(timer);
+    const ticker = setInterval(tickCountdown, 250);
+    return () => clearInterval(ticker);
   }, [liveStartedAt]);
 
-  // Realtime & High-Frequency Auto-Sync Hook (<350ms Lobby Polling)
+  // Stable 500ms Auto-Sync Polling Loop
   useEffect(() => {
     fetchCurrentQuestion();
+    const interval = setInterval(fetchCurrentQuestion, 500);
+    return () => clearInterval(interval);
+  }, [fetchCurrentQuestion]);
 
+  // Supabase Realtime Broadcast Listener
+  useEffect(() => {
     if (!user?.slot_id) return;
 
-    // Supabase Realtime channel subscription
     const channelName = `slot:${user.slot_id}`;
     const channel = supabaseRealtime
       .channel(channelName)
@@ -153,16 +159,10 @@ export const Round1Quiz: React.FC = () => {
       })
       .subscribe();
 
-    // High-frequency 350ms auto-sync when in waiting lobby or 1.5s regular poll
-    const pollInterval = setInterval(() => {
-      fetchCurrentQuestion();
-    }, waitingForNext || !question ? 350 : 1500);
-
     return () => {
       supabaseRealtime.removeChannel(channel);
-      clearInterval(pollInterval);
     };
-  }, [user?.slot_id, waitingForNext, !question, fetchCurrentQuestion, syncTimer]);
+  }, [user?.slot_id, fetchCurrentQuestion, syncTimer]);
 
   const handleSubmit = async (index: number) => {
     // Prevent answering while countdown is still active
