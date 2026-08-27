@@ -39,7 +39,7 @@ export const Round1Quiz: React.FC = () => {
   const isFetchingRef = useRef(false);
 
   const fetchCurrentQuestion = useCallback(async () => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current || showDecode) return;
     isFetchingRef.current = true;
 
     try {
@@ -91,7 +91,7 @@ export const Round1Quiz: React.FC = () => {
       setLoading(false);
       isFetchingRef.current = false;
     }
-  }, [navigate, syncTimer]);
+  }, [navigate, syncTimer, showDecode]);
 
   // Synchronized 3-2-1 Countdown Ticker
   useEffect(() => {
@@ -121,10 +121,11 @@ export const Round1Quiz: React.FC = () => {
 
   // Stable 500ms Auto-Sync Polling Loop
   useEffect(() => {
+    if (showDecode) return;
     fetchCurrentQuestion();
     const interval = setInterval(fetchCurrentQuestion, 500);
     return () => clearInterval(interval);
-  }, [fetchCurrentQuestion]);
+  }, [fetchCurrentQuestion, showDecode]);
 
   // Supabase Realtime Broadcast Listener
   useEffect(() => {
