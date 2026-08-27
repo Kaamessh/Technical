@@ -810,14 +810,14 @@ export async function verifyRound5Password(req: AuthenticatedTeamRequest, res: R
       });
     }
 
-    const pMax = getPMaxForRound(5);
-    const result = await completeTeamRound(teamId!, slotId!, 5, time_taken || 30, pMax > 0 ? undefined : 0);
+    const result = await completeTeamRound(teamId!, slotId!, 5, time_taken || 30);
 
     return res.json({
       correct: true,
       points: result.points,
+      rank: result.rank,
       next_round: 6,
-      message: '🎉 CONGRATULATIONS! PASSWORD DECODED! PROCEEDING TO PROBLEM STATEMENT SELECTION.',
+      message: `🎉 CONGRATULATIONS! PASSWORD DECODED! You ranked #${result.rank} in your slot and earned +${result.points} PTS!`,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });

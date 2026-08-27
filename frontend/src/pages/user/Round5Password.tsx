@@ -47,8 +47,11 @@ export const Round5Password: React.FC = () => {
 
       if (res.data.correct) {
         setTriggerConfetti(true);
-        setFeedback({ message: '🎉 CONGRATULATIONS! PASSWORD DECODED! PROCEEDING TO PROBLEM STATEMENT SELECTION...', type: 'success' });
-        setTimeout(() => navigate('/team/round-6'), 2000);
+        setFeedback({
+          message: res.data.message || `🎉 CONGRATULATIONS! PASSWORD DECODED! +${res.data.points || 100} PTS!`,
+          type: 'success',
+        });
+        setTimeout(() => navigate('/team/round-6'), 1000);
       } else {
         setFeedback({ message: res.data.message || 'Invalid password. Check your binary conversion and decoded word!', type: 'error' });
       }

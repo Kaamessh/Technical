@@ -3,7 +3,7 @@ export interface TaskSettings {
   task2_pmax: number; // Round 2 Workflow (Default 100)
   task3_pmax: number; // Round 3 AI vs Real (Default 100)
   task4_pmax: number; // Round 4 Spot Data (Default 100)
-  task5_pmax: number; // Round 5 Password Unlock (Default 0)
+  task5_pmax: number; // Round 5 Password Unlock (Default 100)
   r3_question_count: number; // Round 3 questions per slot (Default 1)
   r4_question_count: number; // Round 4 questions per slot (Default 1)
 }
@@ -13,7 +13,7 @@ let currentSettings: TaskSettings = {
   task2_pmax: 100,
   task3_pmax: 100,
   task4_pmax: 100,
-  task5_pmax: 0,
+  task5_pmax: 100,
   r3_question_count: 1,
   r4_question_count: 1,
 };
